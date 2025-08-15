@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistema de Puntos</title>
+</head>
+<body>
+    <h1>Clientes</h1>
+    <ul>
+        {% for cliente in clientes %}
+            <li>{{ cliente[1] }} - {{ cliente[2] }} puntos</li>
+        {% endfor %}
+    </ul>
+
+    <h1>Premios</h1>
+    <ul>
+        {% for premio in premios %}
+            <li>{{ premio[1] }} - Requiere {{ premio[2] }} puntos</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
