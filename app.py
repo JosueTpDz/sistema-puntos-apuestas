@@ -126,6 +126,12 @@ def inicio():
     except Exception as e:
         return f"Error de base de datos: {str(e)}", 500
 
+# 🎰 NUEVA RUTA PARA MBL CASA DE APUESTAS
+@app.route('/mbl')
+def mbl_casa_apuestas():
+    """Página del sistema MBL Casa de Apuestas"""
+    return render_template("mbl.html")
+
 # No inicializar aquí - se hará en la ruta principal
 
 if __name__ == '__main__':
