@@ -3,9 +3,8 @@ from flask_cors import CORS
 import mysql.connector
 import os
 
-# Indicar ruta de templates
-template_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-app = Flask(__name__, template_folder=template_path)
+# Templates ahora están en la raíz
+app = Flask(__name__)  # Sin template_folder personalizado
 CORS(app)
 
 # Conexión MySQL usando variables de entorno
@@ -15,22 +14,22 @@ def get_db_connection():
         user=os.getenv("MYSQLUSER"),
         password=os.getenv("MYSQLPASSWORD"),
         database=os.getenv("MYSQLDATABASE"),
-        port=int(os.getenv("MYSQLPORT", 3306))  # ✅ conversión a int
+        port=int(os.getenv("MYSQLPORT", 3306))
     )
 
 @app.route('/')
 def inicio():
     conn = get_db_connection()
     cursor = conn.cursor()
-
+    
     cursor.execute("SELECT id, nombre, puntos FROM clientes")
     clientes = cursor.fetchall()
-
+    
     cursor.execute("SELECT id, nombre, puntos_requeridos FROM premios")
     premios = cursor.fetchall()
-
-    cursor.close()  # ✅ cerrar cursor
-    conn.close()    # ✅ cerrar conexión
+    
+    cursor.close()
+    conn.close()
     return render_template("index.html", clientes=clientes, premios=premios)
 
 if __name__ == '__main__':
