@@ -84,6 +84,8 @@ def inicio():
     except Exception as e:
         return f"Error de base de datos: {str(e)}", 500
 
+# Inicializar base de datos al cargar el módulo
+init_database()
+
 if __name__ == '__main__':
-    init_database()  # Crear tablas al iniciar
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
