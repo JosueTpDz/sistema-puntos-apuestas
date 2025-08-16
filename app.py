@@ -71,6 +71,48 @@ def inicio():
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Intentar crear tablas cada vez (usando IF NOT EXISTS es seguro)
+        try:
+            # Crear tabla clientes
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                nombre TEXT NOT NULL,
+                puntos INTEGER DEFAULT 0
+            )
+            """)
+            
+            # Crear tabla premios
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS premios (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                nombre TEXT NOT NULL,
+                puntos_requeridos INTEGER NOT NULL
+            )
+            """)
+            
+            # Verificar si hay datos, si no, insertarlos
+            cursor.execute("SELECT COUNT(*) FROM clientes")
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("INSERT INTO clientes (nombre, puntos) VALUES (%s, %s)", ('Juan Perez', 150))
+                cursor.execute("INSERT INTO clientes (nombre, puntos) VALUES (%s, %s)", ('Maria Lopez', 300))
+                cursor.execute("INSERT INTO clientes (nombre, puntos) VALUES (%s, %s)", ('Carlos Ramirez', 50))
+            
+            cursor.execute("SELECT COUNT(*) FROM premios")  
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("INSERT INTO premios (nombre, puntos_requeridos) VALUES (%s, %s)", ('Polo Deportivo', 500))
+                cursor.execute("INSERT INTO premios (nombre, puntos_requeridos) VALUES (%s, %s)", ('Camiseta Oficial', 800))
+                cursor.execute("INSERT INTO premios (nombre, puntos_requeridos) VALUES (%s, %s)", ('Cerveza', 200))
+                cursor.execute("INSERT INTO premios (nombre, puntos_requeridos) VALUES (%s, %s)", ('Gaseosa', 100))
+                cursor.execute("INSERT INTO premios (nombre, puntos_requeridos) VALUES (%s, %s)", ('Llavero', 150))
+                cursor.execute("INSERT INTO premios (nombre, puntos_requeridos) VALUES (%s, %s)", ('Gorra', 400))
+                cursor.execute("INSERT INTO premios (nombre, puntos_requeridos) VALUES (%s, %s)", ('Vaso Térmico', 300))
+            
+            conn.commit()
+        except Exception as setup_error:
+            print(f"Error en setup: {setup_error}")
+        
+        # Ahora obtener los datos
         cursor.execute("SELECT id, nombre, puntos FROM clientes")
         clientes = cursor.fetchall()
         
@@ -84,8 +126,7 @@ def inicio():
     except Exception as e:
         return f"Error de base de datos: {str(e)}", 500
 
-# Inicializar base de datos al cargar el módulo
-init_database()
+# No inicializar aquí - se hará en la ruta principal
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
