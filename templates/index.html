@@ -3,609 +3,333 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎰 MBL CASA APUESTAS - Sistema de Puntos</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
-            color: #ffffff;
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-
-        /* Efecto de partículas de fondo */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: radial-gradient(2px 2px at 20% 30%, #ffd700, transparent),
-                radial-gradient(2px 2px at 40% 70%, #ff6b6b, transparent),
-                radial-gradient(1px 1px at 90% 40%, #4ecdc4, transparent),
-                radial-gradient(1px 1px at 50% 50%, #45b7d1, transparent);
-            background-size: 300px 300px;
-            animation: sparkle 20s linear infinite;
-            pointer-events: none;
-            opacity: 0.3;
-            z-index: -1;
-        }
-
-        @keyframes sparkle {
-            from { transform: translateY(0px); }
-            to { transform: translateY(-300px); }
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            position: relative;
-        }
-
-        .header h1 {
-            font-size: 3.5rem;
-            background: linear-gradient(45deg, #ffd700, #ffed4a, #ffd700);
-            -webkit-background-clip: text;
-            background-clip: text; /* Standard property for compatibility */
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-            margin-bottom: 10px;
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes glow {
-            from { text-shadow: 0 0 30px rgba(255, 215, 0, 0.5); }
-            to { text-shadow: 0 0 40px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.3); }
-        }
-
-        .header p {
-            font-size: 1.2rem;
-            color: #b8b8b8;
-            margin-bottom: 30px;
-        }
-
-        .stats-bar {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin: 30px 0;
-            flex-wrap: wrap;
-        }
-
-        .stat-item {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05));
-            border: 2px solid rgba(255, 215, 0, 0.3);
-            border-radius: 15px;
-            padding: 20px 30px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #ffd700;
-            display: block;
-        }
-
-        .stat-label {
-            font-size: 0.9rem;
-            color: #b8b8b8;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            margin-bottom: 40px;
-        }
-
-        @media (max-width: 768px) {
-            .main-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .section {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
-            border-radius: 20px;
-            padding: 30px;
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-        }
-
-        .section-title {
-            font-size: 2rem;
-            margin-bottom: 25px;
-            text-align: center;
-            position: relative;
-            padding-bottom: 15px;
-        }
-
-        .section-title::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 3px;
-            background: linear-gradient(90deg, #ffd700, #ffed4a);
-            border-radius: 2px;
-        }
-
-        .clients-title {
-            color: #4ecdc4;
-        }
-
-        .prizes-title {
-            color: #ff6b6b;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #b8b8b8;
-            font-weight: bold;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            background: rgba(0, 0, 0, 0.3);
-            color: #ffffff;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #ffd700;
-            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #ffd700, #ffed4a);
-            color: #000;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 25px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.4);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-            color: white;
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #4ecdc4, #44a08d);
-            color: white;
-        }
-
-        .list-item {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.3s ease;
-        }
-
-        .list-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            border-color: rgba(255, 215, 0, 0.3);
-        }
-
-        .client-info h3 {
-            color: #4ecdc4;
-            margin-bottom: 5px;
-        }
-
-        .prize-info h3 {
-            color: #ff6b6b;
-            margin-bottom: 5px;
-        }
-
-        .points {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #ffd700;
-        }
-
-        .actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, rgba(26, 26, 46, 0.95), rgba(22, 33, 62, 0.95));
-            border-radius: 20px;
-            padding: 40px;
-            border: 2px solid rgba(255, 215, 0, 0.3);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            text-align: center;
-            max-width: 500px;
-            width: 90%;
-        }
-
-        .modal h2 {
-            color: #ffd700;
-            margin-bottom: 20px;
-        }
-
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 2rem;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .success-message {
-            background: linear-gradient(135deg, rgba(76, 205, 196, 0.2), rgba(76, 205, 196, 0.1));
-            border: 2px solid #4ecdc4;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #4ecdc4;
-            text-align: center;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 215, 0, 0.3);
-            border-radius: 50%;
-            border-top-color: #ffd700;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .dice-animation {
-            font-size: 2rem;
-            animation: bounce 1s infinite;
-        }
-
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-    </style>
+    <title>🎰 MBL CASA APUESTAS - Sistema Integral</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Efecto de partículas de fondo -->
+    <div class="particles-bg"></div>
+
     <div class="container">
-        <header class="header">
-            <h1>🎰 ROYAL CASINO 🎰</h1>
-            <p>Sistema de Puntos y Recompensas</p>
-            
-            <div class="stats-bar">
-                <div class="stat-item">
-                    <span class="stat-number" id="totalClients">0</span>
-                    <span class="stat-label">Jugadores</span>
+        <!-- Sección de Login -->
+        <div id="loginSection" class="login-wrapper">
+            <div class="header">
+                <h1 class="main-title">🎰 MBL CASA APUESTAS</h1>
+                <p class="subtitle">Sistema Integral de Gestión</p>
+            </div>
+
+            <div class="login-section">
+                <h3 class="section-title">Iniciar Sesión</h3>
+                <form id="loginForm" class="login-form">
+                    <div class="form-group">
+                        <label for="username">Usuario:</label>
+                        <select id="username" required class="form-control">
+                            <option value="">Seleccione un usuario</option>
+                            <option value="admin">🔑 Administrador</option>
+                            <option value="user1">👤 Operador 1</option>
+                            <option value="user2">👤 Operador 2</option>
+                            <option value="user3">👤 Operador 3</option>
+                            <option value="user4">👤 Operador 4</option>
+                            <option value="user5">👤 Operador 5</option>
+                            <option value="user6">👤 Operador 6</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña:</label>
+                        <input type="password" id="password" required class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-icon">🔐</span> Ingresar
+                    </button>
+                    <div id="loginError" class="error-message hidden"></div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Dashboard Principal -->
+        <div id="dashboard" class="dashboard hidden">
+            <!-- Header del Dashboard -->
+            <div class="dashboard-header">
+                <div class="user-info">
+                    <div class="user-details">
+                        <h2 id="welcomeMessage" class="welcome-text"></h2>
+                        <p id="userRole" class="user-role"></p>
+                    </div>
+                    <button onclick="logout()" class="btn btn-danger">
+                        <span class="btn-icon">🚪</span> Cerrar Sesión
+                    </button>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-number" id="totalPoints">0</span>
-                    <span class="stat-label">Puntos Totales</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-number" id="totalPrizes">0</span>
-                    <span class="stat-label">Premios</span>
+
+                <!-- Estadísticas Generales -->
+                <div class="stats-overview">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalClientsCount">0</div>
+                            <div class="stat-label">Clientes</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalCanjesCount">0</div>
+                            <div class="stat-label">Canjes</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalPointsCount">0</div>
+                            <div class="stat-label">Puntos</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalPrizesCount">0</div>
+                            <div class="stat-label">Premios</div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </header>
 
-        <div class="main-grid">
-            <!-- Sección de Clientes -->
-            <section class="section">
-                <h2 class="section-title clients-title">🎲 JUGADORES ACTIVOS</h2>
-                
-                <div class="form-group">
-                    <label for="newClientName">Nombre del Jugador:</label>
-                    <input type="text" id="newClientName" placeholder="Ingrese nombre...">
-                </div>
-                <div class="form-group">
-                    <label for="newClientPoints">Puntos Iniciales:</label>
-                    <input type="number" id="newClientPoints" placeholder="0" min="0">
-                </div>
-                <button class="btn" onclick="addClient()">
-                    <span class="dice-animation">🎯</span> Agregar Jugador
+            <!-- Navegación por Tabs -->
+            <div class="tabs-navigation">
+                <button class="tab-btn active" onclick="showTab('clients')" data-tab="clients">
+                    <span class="tab-icon">👥</span> Clientes
                 </button>
-
-                <div id="clientsList"></div>
-            </section>
-
-            <!-- Sección de Premios -->
-            <section class="section">
-                <h2 class="section-title prizes-title">🏆 PREMIOS DISPONIBLES</h2>
-                
-                <div class="form-group">
-                    <label for="newPrizeName">Nombre del Premio:</label>
-                    <input type="text" id="newPrizeName" placeholder="Ej: Bono Especial...">
-                </div>
-                <div class="form-group">
-                    <label for="newPrizePoints">Puntos Requeridos:</label>
-                    <input type="number" id="newPrizePoints" placeholder="100" min="1">
-                </div>
-                <button class="btn btn-danger" onclick="addPrize()">
-                    <span class="dice-animation">💎</span> Agregar Premio
+                <button class="tab-btn" onclick="showTab('canjes')" data-tab="canjes">
+                    <span class="tab-icon">💰</span> Canjes
                 </button>
+                <button class="tab-btn" onclick="showTab('points')" data-tab="points">
+                    <span class="tab-icon">⭐</span> Puntos
+                </button>
+                <button class="tab-btn" onclick="showTab('prizes')" data-tab="prizes">
+                    <span class="tab-icon">🏆</span> Premios
+                </button>
+                <button class="tab-btn hidden admin-only" onclick="showTab('admin')" data-tab="admin">
+                    <span class="tab-icon">🔧</span> Admin
+                </button>
+            </div>
 
-                <div id="prizesList"></div>
-            </section>
+            <!-- Contenido de Tabs -->
+            <div class="tab-contents">
+                <!-- Tab Clientes -->
+                <div id="clientsTab" class="tab-content active">
+                    <div class="section-container">
+                        <div class="section-header">
+                            <h3 class="section-title">👥 Gestión de Clientes</h3>
+                        </div>
+                        
+                        <div class="form-section">
+                            <form id="clientForm" class="client-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="clientName">Nombre Completo:</label>
+                                        <input type="text" id="clientName" required class="form-control">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientDNI">DNI:</label>
+                                        <input type="text" id="clientDNI" required pattern="[0-9]{8}" class="form-control">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientPhone">Teléfono:</label>
+                                        <input type="tel" id="clientPhone" required class="form-control">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="initialPoints">Puntos Iniciales:</label>
+                                        <input type="number" id="initialPoints" min="0" value="0" class="form-control">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success">
+                                    <span class="btn-icon">➕</span> Agregar Cliente
+                                </button>
+                            </form>
+                            <div id="clientMessage" class="message hidden"></div>
+                        </div>
+
+                        <div id="clientsList" class="items-list"></div>
+                    </div>
+                </div>
+
+                <!-- Tab Canjes -->
+                <div id="canjesTab" class="tab-content">
+                    <div class="section-container">
+                        <div class="section-header">
+                            <h3 class="section-title">💰 Registro de Canjes</h3>
+                        </div>
+                        
+                        <div class="form-section">
+                            <form id="canjeForm" class="client-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="canjeClient">Cliente:</label>
+                                        <select id="canjeClient" required class="form-control">
+                                            <option value="">Seleccione un cliente</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="canjeAmount">Monto del Canje:</label>
+                                        <input type="number" id="canjeAmount" required min="0" step="0.01" class="form-control">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="canjeDescription">Descripción:</label>
+                                        <input type="text" id="canjeDescription" required class="form-control">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success">
+                                    <span class="btn-icon">💳</span> Registrar Canje
+                                </button>
+                            </form>
+                            <div id="canjeMessage" class="message hidden"></div>
+                        </div>
+
+                        <div id="canjesList" class="items-list"></div>
+                    </div>
+                </div>
+
+                <!-- Tab Puntos -->
+                <div id="pointsTab" class="tab-content">
+                    <div class="section-container">
+                        <div class="section-header">
+                            <h3 class="section-title">⭐ Gestión de Puntos</h3>
+                        </div>
+                        
+                        <div class="form-section">
+                            <form id="pointsForm" class="client-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="pointsClient">Cliente:</label>
+                                        <select id="pointsClient" required class="form-control">
+                                            <option value="">Seleccione un cliente</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="pointsAmount">Puntos a Agregar/Quitar:</label>
+                                        <input type="number" id="pointsAmount" required class="form-control">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="pointsReason">Razón:</label>
+                                        <input type="text" id="pointsReason" required class="form-control">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <button type="submit" class="btn btn-success" data-action="add">
+                                        <span class="btn-icon">➕</span> Agregar Puntos
+                                    </button>
+                                    <button type="button" class="btn btn-warning" onclick="subtractPoints()">
+                                        <span class="btn-icon">➖</span> Quitar Puntos
+                                    </button>
+                                </div>
+                            </form>
+                            <div id="pointsMessage" class="message hidden"></div>
+                        </div>
+
+                        <div id="pointsHistory" class="items-list"></div>
+                    </div>
+                </div>
+
+                <!-- Tab Premios -->
+                <div id="prizesTab" class="tab-content">
+                    <div class="section-container">
+                        <div class="section-header">
+                            <h3 class="section-title">🏆 Gestión de Premios</h3>
+                        </div>
+                        
+                        <div class="form-section">
+                            <form id="prizeForm" class="client-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="prizeName">Nombre del Premio:</label>
+                                        <input type="text" id="prizeName" required class="form-control">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="prizePoints">Puntos Requeridos:</label>
+                                        <input type="number" id="prizePoints" required min="1" class="form-control">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="prizeDescription">Descripción:</label>
+                                        <input type="text" id="prizeDescription" class="form-control">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success">
+                                    <span class="btn-icon">🎁</span> Agregar Premio
+                                </button>
+                            </form>
+                            <div id="prizeMessage" class="message hidden"></div>
+                        </div>
+
+                        <div id="prizesList" class="items-list"></div>
+                    </div>
+                </div>
+
+                <!-- Tab Admin -->
+                <div id="adminTab" class="tab-content">
+                    <div class="section-container">
+                        <div class="section-header">
+                            <h3 class="section-title">🔧 Panel de Administración</h3>
+                        </div>
+                        
+                        <div class="admin-overview">
+                            <div class="admin-section">
+                                <h4>📊 Estadísticas Generales</h4>
+                                <div class="admin-stats">
+                                    <div class="admin-stat-item">
+                                        <span>Total Clientes Sistema:</span>
+                                        <span id="adminTotalClients">0</span>
+                                    </div>
+                                    <div class="admin-stat-item">
+                                        <span>Total Canjes Sistema:</span>
+                                        <span id="adminTotalCanjes">0</span>
+                                    </div>
+                                    <div class="admin-stat-item">
+                                        <span>Monto Total Canjeado:</span>
+                                        <span id="adminTotalAmount">S/ 0.00</span>
+                                    </div>
+                                    <div class="admin-stat-item">
+                                        <span>Puntos Totales en Circulación:</span>
+                                        <span id="adminTotalPoints">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="admin-section">
+                                <h4>👥 Resumen por Usuario</h4>
+                                <div id="adminUserStats" class="admin-user-list"></div>
+                            </div>
+
+                            <div class="admin-section">
+                                <h4>🏆 Canjes de Premios Recientes</h4>
+                                <div id="adminRecentRedeems" class="admin-activity-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Modal de Canje -->
+    <!-- Modal para Canje de Premios -->
     <div id="redeemModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>🎊 ¡CANJEAR PREMIO! 🎊</h2>
-            <p id="redeemMessage"></p>
-            <div style="margin: 20px 0;">
-                <button class="btn btn-success" onclick="confirmRedeem()">Confirmar Canje</button>
-                <button class="btn" onclick="closeModal()">Cancelar</button>
+            <div class="modal-header">
+                <h3>🎊 Canjear Premio</h3>
+                <span class="modal-close" onclick="closeRedeemModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="redeemMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" onclick="confirmPrizeRedeem()">
+                    <span class="btn-icon">✅</span> Confirmar
+                </button>
+                <button class="btn btn-secondary" onclick="closeRedeemModal()">
+                    <span class="btn-icon">❌</span> Cancelar
+                </button>
             </div>
         </div>
     </div>
 
-    <script>
-        // Datos simulados (en una app real, esto vendría del backend)
-        let clients = [
-            { id: 1, nombre: 'Juan Perez', puntos: 150 },
-            { id: 2, nombre: 'Maria Lopez', puntos: 300 },
-            { id: 3, nombre: 'Carlos Ramirez', puntos: 50 }
-        ];
-
-        let prizes = [
-            { id: 1, nombre: 'Polo Deportivo', puntos_requeridos: 500 },
-            { id: 2, nombre: 'Camiseta Oficial', puntos_requeridos: 800 },
-            { id: 3, nombre: 'Cerveza', puntos_requeridos: 200 },
-            { id: 4, nombre: 'Gaseosa', puntos_requeridos: 100 },
-            { id: 5, nombre: 'Llavero', puntos_requeridos: 150 },
-            { id: 6, nombre: 'Gorra', puntos_requeridos: 400 },
-            { id: 7, nombre: 'Vaso Térmico', puntos_requeridos: 300 }
-        ];
-
-        let currentRedeem = null;
-
-        function updateStats() {
-            document.getElementById('totalClients').textContent = clients.length;
-            document.getElementById('totalPoints').textContent = clients.reduce((sum, c) => sum + c.puntos, 0);
-            document.getElementById('totalPrizes').textContent = prizes.length;
-        }
-
-        function renderClients() {
-            const container = document.getElementById('clientsList');
-            container.innerHTML = clients.map(client => `
-                <div class="list-item">
-                    <div class="client-info">
-                        <h3>${client.nombre}</h3>
-                        <div class="points">${client.puntos} puntos</div>
-                    </div>
-                    <div class="actions">
-                        <button class="btn btn-success" onclick="addPoints(${client.id})">
-                            💰 +Puntos
-                        </button>
-                        <button class="btn btn-danger" onclick="removeClient(${client.id})">
-                            ❌ Eliminar
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function renderPrizes() {
-            const container = document.getElementById('prizesList');
-            container.innerHTML = prizes.map(prize => `
-                <div class="list-item">
-                    <div class="prize-info">
-                        <h3>${prize.nombre}</h3>
-                        <div class="points">${prize.puntos_requeridos} puntos</div>
-                    </div>
-                    <div class="actions">
-                        <select onchange="selectClientForRedeem(${prize.id}, this.value)" style="padding: 8px; border-radius: 5px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.3);">
-                            <option value="">Seleccionar jugador...</option>
-                            ${clients.filter(c => c.puntos >= prize.puntos_requeridos).map(client => 
-                                `<option value="${client.id}">${client.nombre} (${client.puntos}pts)</option>`
-                            ).join('')}
-                        </select>
-                        <button class="btn btn-danger" onclick="removePrize(${prize.id})">
-                            🗑️ Eliminar
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function addClient() {
-            const name = document.getElementById('newClientName').value.trim();
-            const points = parseInt(document.getElementById('newClientPoints').value) || 0;
-            
-            if (!name) {
-                alert('Por favor ingrese un nombre');
-                return;
-            }
-
-            const newId = Math.max(...clients.map(c => c.id)) + 1;
-            clients.push({
-                id: newId,
-                nombre: name,
-                puntos: points
-            });
-
-            document.getElementById('newClientName').value = '';
-            document.getElementById('newClientPoints').value = '';
-            
-            render();
-            showSuccessMessage('¡Jugador agregado exitosamente!');
-        }
-
-        function addPrize() {
-            const name = document.getElementById('newPrizeName').value.trim();
-            const points = parseInt(document.getElementById('newPrizePoints').value);
-            
-            if (!name || !points) {
-                alert('Por favor complete todos los campos');
-                return;
-            }
-
-            const newId = Math.max(...prizes.map(p => p.id)) + 1;
-            prizes.push({
-                id: newId,
-                nombre: name,
-                puntos_requeridos: points
-            });
-
-            document.getElementById('newPrizeName').value = '';
-            document.getElementById('newPrizePoints').value = '';
-            
-            render();
-            showSuccessMessage('¡Premio agregado exitosamente!');
-        }
-
-        function addPoints(clientId) {
-            const points = prompt('¿Cuántos puntos agregar?');
-            if (points && !isNaN(points)) {
-                const client = clients.find(c => c.id === clientId);
-                client.puntos += parseInt(points);
-                render();
-                showSuccessMessage(`¡${points} puntos agregados a ${client.nombre}!`);
-            }
-        }
-
-        function removeClient(clientId) {
-            if (confirm('¿Está seguro de eliminar este jugador?')) {
-                clients = clients.filter(c => c.id !== clientId);
-                render();
-                showSuccessMessage('Jugador eliminado');
-            }
-        }
-
-        function removePrize(prizeId) {
-            if (confirm('¿Está seguro de eliminar este premio?')) {
-                prizes = prizes.filter(p => p.id !== prizeId);
-                render();
-                showSuccessMessage('Premio eliminado');
-            }
-        }
-
-        function selectClientForRedeem(prizeId, clientId) {
-            if (!clientId) return;
-            
-            const client = clients.find(c => c.id == clientId);
-            const prize = prizes.find(p => p.id === prizeId);
-            
-            currentRedeem = { client, prize };
-            
-            document.getElementById('redeemMessage').innerHTML = `
-                <strong>${client.nombre}</strong> canjeará<br>
-                <strong>${prize.nombre}</strong><br>
-                <span style="color: #ffd700;">Costo: ${prize.puntos_requeridos} puntos</span><br>
-                <span style="color: #4ecdc4;">Puntos restantes: ${client.puntos - prize.puntos_requeridos}</span>
-            `;
-            
-            document.getElementById('redeemModal').style.display = 'flex';
-        }
-
-        function confirmRedeem() {
-            if (currentRedeem) {
-                currentRedeem.client.puntos -= currentRedeem.prize.puntos_requeridos;
-                render();
-                showSuccessMessage(`¡${currentRedeem.client.nombre} canjeó ${currentRedeem.prize.nombre}!`);
-                closeModal();
-            }
-        }
-
-        function closeModal() {
-            document.getElementById('redeemModal').style.display = 'none';
-            currentRedeem = null;
-        }
-
-        function showSuccessMessage(message) {
-            const existing = document.querySelector('.success-message');
-            if (existing) existing.remove();
-            
-            const msg = document.createElement('div');
-            msg.className = 'success-message';
-            msg.textContent = message;
-            document.querySelector('.header').appendChild(msg);
-            
-            setTimeout(() => msg.remove(), 3000);
-        }
-
-        function render() {
-            updateStats();
-            renderClients();
-            renderPrizes();
-        }
-
-        // Inicializar
-        render();
-
-        // Cerrar modal con Escape
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeModal();
-        });
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
