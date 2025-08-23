@@ -3,333 +3,410 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎰 MBL CASA APUESTAS - Sistema Integral</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>MBL Casa de Apuestas - Sistema de Puntos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js para Analytics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 </head>
 <body>
-    <!-- Efecto de partículas de fondo -->
-    <div class="particles-bg"></div>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-dice"></i>
+                <span>MBL Casa de Apuestas</span>
+            </div>
+            <div class="user-info">
+                <span id="username-display">Usuario</span>
+                <button id="logout-btn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Salir
+                </button>
+            </div>
+        </div>
+    </header>
 
-    <div class="container">
-        <!-- Sección de Login -->
-        <div id="loginSection" class="login-wrapper">
-            <div class="header">
-                <h1 class="main-title">🎰 MBL CASA APUESTAS</h1>
-                <p class="subtitle">Sistema Integral de Gestión</p>
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="dashboard">
+            <i class="fas fa-chart-line"></i> Analytics
+        </button>
+        <button class="tab-btn" data-tab="clientes">
+            <i class="fas fa-users"></i> Clientes
+        </button>
+        <button class="tab-btn" data-tab="canjes">
+            <i class="fas fa-gift"></i> Canjes
+        </button>
+        <button class="tab-btn" data-tab="admin" id="admin-tab" style="display: none;">
+            <i class="fas fa-cog"></i> Admin
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- ============ NUEVA SECCIÓN: DASHBOARD ANALYTICS ============ -->
+        <section id="dashboard" class="tab-content active">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-line"></i> Dashboard Analytics</h2>
+                <div class="date-filters">
+                    <select id="analytics-period" class="period-selector">
+                        <option value="7">Últimos 7 días</option>
+                        <option value="30" selected>Últimos 30 días</option>
+                        <option value="90">Últimos 90 días</option>
+                    </select>
+                    <button id="refresh-analytics" class="refresh-btn">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
             </div>
 
-            <div class="login-section">
-                <h3 class="section-title">Iniciar Sesión</h3>
-                <form id="loginForm" class="login-form">
-                    <div class="form-group">
-                        <label for="username">Usuario:</label>
-                        <select id="username" required class="form-control">
-                            <option value="">Seleccione un usuario</option>
-                            <option value="admin">🔑 Administrador</option>
-                            <option value="user1">👤 Operador 1</option>
-                            <option value="user2">👤 Operador 2</option>
-                            <option value="user3">👤 Operador 3</option>
-                            <option value="user4">👤 Operador 4</option>
-                            <option value="user5">👤 Operador 5</option>
-                            <option value="user6">👤 Operador 6</option>
+            <!-- KPIs Cards -->
+            <div class="kpis-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Hoy</h3>
+                        <div class="kpi-value" id="canjes-hoy">0</div>
+                        <div class="kpi-label">Canjes</div>
+                        <div class="kpi-amount" id="monto-hoy">$0</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Este Mes</h3>
+                        <div class="kpi-value" id="canjes-mes">0</div>
+                        <div class="kpi-label">Canjes</div>
+                        <div class="kpi-amount" id="monto-mes">$0</div>
+                        <div class="kpi-growth" id="growth-mes">
+                            <i class="fas fa-arrow-up"></i> 0%
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Clientes Activos</h3>
+                        <div class="kpi-value" id="clientes-activos">0</div>
+                        <div class="kpi-label">Este mes</div>
+                        <div class="kpi-amount" id="promedio-canje">$0 promedio</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-icon">
+                        <i class="fas fa-crown"></i>
+                    </div>
+                    <div class="kpi-content">
+                        <h3>Top Cliente</h3>
+                        <div class="kpi-value" id="top-cliente-nombre">-</div>
+                        <div class="kpi-label" id="top-cliente-canjes">0 canjes</div>
+                        <div class="kpi-amount" id="top-cliente-monto">$0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-grid">
+                <!-- Ventas Diarias Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-line"></i> Ventas Diarias</h3>
+                        <div class="chart-legend">
+                            <span class="legend-item">
+                                <span class="legend-color" style="background: #8B5CF6;"></span>
+                                Canjes
+                            </span>
+                            <span class="legend-item">
+                                <span class="legend-color" style="background: #10B981;"></span>
+                                Monto ($)
+                            </span>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="daily-sales-chart"></canvas>
+                    </div>
+                    <div class="chart-loading" id="daily-sales-loading">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando...
+                    </div>
+                </div>
+
+                <!-- Top Clientes Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-medal"></i> Top Clientes</h3>
+                        <select id="top-clients-limit" class="chart-filter">
+                            <option value="5">Top 5</option>
+                            <option value="10" selected>Top 10</option>
+                            <option value="15">Top 15</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="password">Contraseña:</label>
-                        <input type="password" id="password" required class="form-control">
+                    <div class="chart-wrapper">
+                        <canvas id="top-clients-chart"></canvas>
                     </div>
-                    <button type="submit" class="btn btn-primary">
-                        <span class="btn-icon">🔐</span> Ingresar
-                    </button>
-                    <div id="loginError" class="error-message hidden"></div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Dashboard Principal -->
-        <div id="dashboard" class="dashboard hidden">
-            <!-- Header del Dashboard -->
-            <div class="dashboard-header">
-                <div class="user-info">
-                    <div class="user-details">
-                        <h2 id="welcomeMessage" class="welcome-text"></h2>
-                        <p id="userRole" class="user-role"></p>
-                    </div>
-                    <button onclick="logout()" class="btn btn-danger">
-                        <span class="btn-icon">🚪</span> Cerrar Sesión
-                    </button>
-                </div>
-
-                <!-- Estadísticas Generales -->
-                <div class="stats-overview">
-                    <div class="stat-card">
-                        <div class="stat-icon">👥</div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalClientsCount">0</div>
-                            <div class="stat-label">Clientes</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">💰</div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalCanjesCount">0</div>
-                            <div class="stat-label">Canjes</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">⭐</div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalPointsCount">0</div>
-                            <div class="stat-label">Puntos</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🏆</div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalPrizesCount">0</div>
-                            <div class="stat-label">Premios</div>
-                        </div>
+                    <div class="chart-loading" id="top-clients-loading">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando...
                     </div>
                 </div>
             </div>
 
-            <!-- Navegación por Tabs -->
-            <div class="tabs-navigation">
-                <button class="tab-btn active" onclick="showTab('clients')" data-tab="clients">
-                    <span class="tab-icon">👥</span> Clientes
-                </button>
-                <button class="tab-btn" onclick="showTab('canjes')" data-tab="canjes">
-                    <span class="tab-icon">💰</span> Canjes
-                </button>
-                <button class="tab-btn" onclick="showTab('points')" data-tab="points">
-                    <span class="tab-icon">⭐</span> Puntos
-                </button>
-                <button class="tab-btn" onclick="showTab('prizes')" data-tab="prizes">
-                    <span class="tab-icon">🏆</span> Premios
-                </button>
-                <button class="tab-btn hidden admin-only" onclick="showTab('admin')" data-tab="admin">
-                    <span class="tab-icon">🔧</span> Admin
-                </button>
-            </div>
-
-            <!-- Contenido de Tabs -->
-            <div class="tab-contents">
-                <!-- Tab Clientes -->
-                <div id="clientsTab" class="tab-content active">
-                    <div class="section-container">
-                        <div class="section-header">
-                            <h3 class="section-title">👥 Gestión de Clientes</h3>
-                        </div>
-                        
-                        <div class="form-section">
-                            <form id="clientForm" class="client-form">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="clientName">Nombre Completo:</label>
-                                        <input type="text" id="clientName" required class="form-control">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="clientDNI">DNI:</label>
-                                        <input type="text" id="clientDNI" required pattern="[0-9]{8}" class="form-control">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="clientPhone">Teléfono:</label>
-                                        <input type="tel" id="clientPhone" required class="form-control">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="initialPoints">Puntos Iniciales:</label>
-                                        <input type="number" id="initialPoints" min="0" value="0" class="form-control">
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-success">
-                                    <span class="btn-icon">➕</span> Agregar Cliente
-                                </button>
-                            </form>
-                            <div id="clientMessage" class="message hidden"></div>
-                        </div>
-
-                        <div id="clientsList" class="items-list"></div>
-                    </div>
+            <!-- Trends Section -->
+            <div class="trends-section">
+                <div class="trends-header">
+                    <h3><i class="fas fa-trending-up"></i> Tendencias y Patrones</h3>
                 </div>
-
-                <!-- Tab Canjes -->
-                <div id="canjesTab" class="tab-content">
-                    <div class="section-container">
-                        <div class="section-header">
-                            <h3 class="section-title">💰 Registro de Canjes</h3>
-                        </div>
-                        
-                        <div class="form-section">
-                            <form id="canjeForm" class="client-form">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="canjeClient">Cliente:</label>
-                                        <select id="canjeClient" required class="form-control">
-                                            <option value="">Seleccione un cliente</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="canjeAmount">Monto del Canje:</label>
-                                        <input type="number" id="canjeAmount" required min="0" step="0.01" class="form-control">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="canjeDescription">Descripción:</label>
-                                        <input type="text" id="canjeDescription" required class="form-control">
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-success">
-                                    <span class="btn-icon">💳</span> Registrar Canje
-                                </button>
-                            </form>
-                            <div id="canjeMessage" class="message hidden"></div>
-                        </div>
-
-                        <div id="canjesList" class="items-list"></div>
-                    </div>
-                </div>
-
-                <!-- Tab Puntos -->
-                <div id="pointsTab" class="tab-content">
-                    <div class="section-container">
-                        <div class="section-header">
-                            <h3 class="section-title">⭐ Gestión de Puntos</h3>
-                        </div>
-                        
-                        <div class="form-section">
-                            <form id="pointsForm" class="client-form">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="pointsClient">Cliente:</label>
-                                        <select id="pointsClient" required class="form-control">
-                                            <option value="">Seleccione un cliente</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="pointsAmount">Puntos a Agregar/Quitar:</label>
-                                        <input type="number" id="pointsAmount" required class="form-control">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="pointsReason">Razón:</label>
-                                        <input type="text" id="pointsReason" required class="form-control">
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <button type="submit" class="btn btn-success" data-action="add">
-                                        <span class="btn-icon">➕</span> Agregar Puntos
-                                    </button>
-                                    <button type="button" class="btn btn-warning" onclick="subtractPoints()">
-                                        <span class="btn-icon">➖</span> Quitar Puntos
-                                    </button>
-                                </div>
-                            </form>
-                            <div id="pointsMessage" class="message hidden"></div>
-                        </div>
-
-                        <div id="pointsHistory" class="items-list"></div>
-                    </div>
-                </div>
-
-                <!-- Tab Premios -->
-                <div id="prizesTab" class="tab-content">
-                    <div class="section-container">
-                        <div class="section-header">
-                            <h3 class="section-title">🏆 Gestión de Premios</h3>
-                        </div>
-                        
-                        <div class="form-section">
-                            <form id="prizeForm" class="client-form">
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="prizeName">Nombre del Premio:</label>
-                                        <input type="text" id="prizeName" required class="form-control">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="prizePoints">Puntos Requeridos:</label>
-                                        <input type="number" id="prizePoints" required min="1" class="form-control">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="prizeDescription">Descripción:</label>
-                                        <input type="text" id="prizeDescription" class="form-control">
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-success">
-                                    <span class="btn-icon">🎁</span> Agregar Premio
-                                </button>
-                            </form>
-                            <div id="prizeMessage" class="message hidden"></div>
-                        </div>
-
-                        <div id="prizesList" class="items-list"></div>
-                    </div>
-                </div>
-
-                <!-- Tab Admin -->
-                <div id="adminTab" class="tab-content">
-                    <div class="section-container">
-                        <div class="section-header">
-                            <h3 class="section-title">🔧 Panel de Administración</h3>
-                        </div>
-                        
-                        <div class="admin-overview">
-                            <div class="admin-section">
-                                <h4>📊 Estadísticas Generales</h4>
-                                <div class="admin-stats">
-                                    <div class="admin-stat-item">
-                                        <span>Total Clientes Sistema:</span>
-                                        <span id="adminTotalClients">0</span>
-                                    </div>
-                                    <div class="admin-stat-item">
-                                        <span>Total Canjes Sistema:</span>
-                                        <span id="adminTotalCanjes">0</span>
-                                    </div>
-                                    <div class="admin-stat-item">
-                                        <span>Monto Total Canjeado:</span>
-                                        <span id="adminTotalAmount">S/ 0.00</span>
-                                    </div>
-                                    <div class="admin-stat-item">
-                                        <span>Puntos Totales en Circulación:</span>
-                                        <span id="adminTotalPoints">0</span>
-                                    </div>
+                
+                <div class="trends-grid">
+                    <!-- Comparativa Semanal -->
+                    <div class="trend-card">
+                        <h4>Comparativa Semanal</h4>
+                        <div class="comparison-stats">
+                            <div class="comparison-item">
+                                <span class="comparison-label">Semana Actual</span>
+                                <div class="comparison-values">
+                                    <span class="comparison-canjes" id="current-week-canjes">0 canjes</span>
+                                    <span class="comparison-monto" id="current-week-monto">$0</span>
                                 </div>
                             </div>
-
-                            <div class="admin-section">
-                                <h4>👥 Resumen por Usuario</h4>
-                                <div id="adminUserStats" class="admin-user-list"></div>
+                            <div class="comparison-arrow">
+                                <i class="fas fa-exchange-alt"></i>
                             </div>
-
-                            <div class="admin-section">
-                                <h4>🏆 Canjes de Premios Recientes</h4>
-                                <div id="adminRecentRedeems" class="admin-activity-list"></div>
+                            <div class="comparison-item">
+                                <span class="comparison-label">Semana Anterior</span>
+                                <div class="comparison-values">
+                                    <span class="comparison-canjes" id="previous-week-canjes">0 canjes</span>
+                                    <span class="comparison-monto" id="previous-week-monto">$0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="comparison-changes">
+                            <div class="change-item" id="canjes-change">
+                                <i class="fas fa-arrow-up"></i> 0% Canjes
+                            </div>
+                            <div class="change-item" id="monto-change">
+                                <i class="fas fa-arrow-up"></i> 0% Monto
                             </div>
                         </div>
                     </div>
+
+                    <!-- Patrón Horario -->
+                    <div class="trend-card">
+                        <h4>Patrón Horario</h4>
+                        <div class="hourly-chart-wrapper">
+                            <canvas id="hourly-pattern-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Días -->
+                    <div class="trend-card">
+                        <h4>Mejores Días de la Semana</h4>
+                        <div class="weekday-ranking" id="weekday-ranking">
+                            <!-- Se llena dinámicamente -->
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
 
-    <!-- Modal para Canje de Premios -->
-    <div id="redeemModal" class="modal">
+        <!-- Clientes Section -->
+        <section id="clientes" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-users"></i> Gestión de Clientes</h2>
+                <button id="new-client-btn" class="btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Cliente
+                </button>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="client-search" placeholder="Buscar cliente por nombre o cédula...">
+                <i class="fas fa-search"></i>
+            </div>
+
+            <div class="table-container">
+                <table id="clients-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Cédula</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clients-tbody">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Canjes Section -->
+        <section id="canjes" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-gift"></i> Registro de Canjes</h2>
+                <button id="new-canje-btn" class="btn-primary">
+                    <i class="fas fa-plus"></i> Nuevo Canje
+                </button>
+            </div>
+
+            <div class="filters-bar">
+                <input type="date" id="canje-date-filter">
+                <select id="canje-client-filter">
+                    <option value="">Todos los clientes</option>
+                </select>
+                <button id="clear-filters-btn" class="btn-secondary">Limpiar Filtros</button>
+            </div>
+
+            <div class="table-container">
+                <table id="canjes-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Monto</th>
+                            <th>Descripción</th>
+                            <th>Usuario</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="canjes-tbody">
+                        <!-- Se llena dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Admin Section -->
+        <section id="admin" class="tab-content">
+            <div class="section-header">
+                <h2><i class="fas fa-cog"></i> Panel de Administración</h2>
+            </div>
+
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <h3>Total Clientes</h3>
+                    <div class="stat-number" id="admin-total-clientes">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Canjes</h3>
+                    <div class="stat-number" id="admin-total-canjes">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Monto Total</h3>
+                    <div class="stat-number" id="admin-total-monto">$0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Canjes Hoy</h3>
+                    <div class="stat-number" id="admin-canjes-hoy">0</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <!-- Modal Nuevo Cliente -->
+    <div id="client-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>🎊 Canjear Premio</h3>
-                <span class="modal-close" onclick="closeRedeemModal()">&times;</span>
+                <h3 id="client-modal-title">Nuevo Cliente</h3>
+                <span class="close" id="client-modal-close">&times;</span>
             </div>
-            <div class="modal-body">
-                <p id="redeemMessage"></p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-success" onclick="confirmPrizeRedeem()">
-                    <span class="btn-icon">✅</span> Confirmar
-                </button>
-                <button class="btn btn-secondary" onclick="closeRedeemModal()">
-                    <span class="btn-icon">❌</span> Cancelar
-                </button>
-            </div>
+            <form id="client-form">
+                <input type="hidden" id="client-id">
+                <div class="form-group">
+                    <label for="client-nombre">Nombre Completo *</label>
+                    <input type="text" id="client-nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="client-cedula">Cédula *</label>
+                    <input type="text" id="client-cedula" required>
+                </div>
+                <div class="form-group">
+                    <label for="client-telefono">Teléfono</label>
+                    <input type="tel" id="client-telefono">
+                </div>
+                <div class="form-group">
+                    <label for="client-email">Email</label>
+                    <input type="email" id="client-email">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="client-cancel-btn" class="btn-secondary">Cancelar</button>
+                    <button type="submit" id="client-save-btn" class="btn-primary">Guardar</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Modal Nuevo Canje -->
+    <div id="canje-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Nuevo Canje</h3>
+                <span class="close" id="canje-modal-close">&times;</span>
+            </div>
+            <form id="canje-form">
+                <div class="form-group">
+                    <label for="canje-cliente">Cliente *</label>
+                    <select id="canje-cliente" required>
+                        <option value="">Seleccionar cliente...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="canje-monto">Monto *</label>
+                    <input type="number" id="canje-monto" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="canje-descripcion">Descripción</label>
+                    <textarea id="canje-descripcion" rows="3"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="canje-cancel-btn" class="btn-secondary">Cancelar</button>
+                    <button type="submit" id="canje-save-btn" class="btn-primary">Registrar Canje</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Cargando...</p>
+        </div>
+    </div>
+
+    <!-- Notification System -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script>
+        // Inicializar la aplicación cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar autenticación
+            if (!localStorage.getItem('mbl_token')) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Cargar datos iniciales
+            loadUserData();
+            loadInitialData();
+            
+            // ============ INICIALIZAR ANALYTICS ============
+            initializeAnalytics();
+            loadDashboardData();
+        });
+    </script>
 </body>
 </html>

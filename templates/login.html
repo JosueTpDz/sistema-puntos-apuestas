@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBL Casa de Apuestas - Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-card">
+            <!-- Logo y título -->
+            <div class="login-header">
+                <div class="logo-large">
+                    <i class="fas fa-dice"></i>
+                    <h1>MBL Casa de Apuestas</h1>
+                </div>
+                <p class="login-subtitle">Sistema de Puntos y Canjes</p>
+            </div>
+
+            <!-- Formulario de login -->
+            <form id="loginForm" class="login-form">
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            placeholder="Usuario" 
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder="Contraseña" 
+                            required
+                            autocomplete="current-password"
+                        >
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Iniciar Sesión</span>
+                    <div class="btn-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                </button>
+
+                <!-- Mensaje de error -->
+                <div id="loginError" class="error-message" style="display: none;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="errorText">Error de autenticación</span>
+                </div>
+
+                <!-- Mensaje de éxito -->
+                <div id="loginSuccess" class="success-message" style="display: none;">
+                    <i class="fas fa-check-circle"></i>
+                    <span>¡Login exitoso! Redirigiendo...</span>
+                </div>
+            </form>
+
+            <!-- Información de usuarios por defecto -->
+            <div class="login-info">
+                <h3><i class="fas fa-info-circle"></i> Credenciales por defecto:</h3>
+                <div class="credentials-grid">
+                    <div class="credential-item admin">
+                        <strong>Admin:</strong> admin / admin123
+                    </div>
+                    <div class="credential-item user">
+                        <strong>Usuario:</strong> user1-6 / user123
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Elementos decorativos -->
+        <div class="login-bg-elements">
+            <div class="floating-element element-1">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="floating-element element-2">
+                <i class="fas fa-trophy"></i>
+            </div>
+            <div class="floating-element element-3">
+                <i class="fas fa-star"></i>
+            </div>
+            <div class="floating-element element-4">
+                <i class="fas fa-gem"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript para login -->
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const btn = document.querySelector('.btn-login');
+            const btnText = btn.querySelector('span');
+            const btnLoading = btn.querySelector('.btn-loading');
+            const errorDiv = document.getElementById('loginError');
+            const successDiv = document.getElementById('loginSuccess');
+            const errorText = document.getElementById('errorText');
+            
+            // Mostrar loading
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'block';
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            
+            try {
+                const formData = {
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                };
+                
+                const response = await fetch('/api/mbl/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Mostrar éxito
+                    successDiv.style.display = 'block';
+                    
+                    // Redirigir después de 1 segundo
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                    
+                } else {
+                    // Mostrar error
+                    errorText.textContent = data.message || 'Error de autenticación';
+                    errorDiv.style.display = 'block';
+                    
+                    // Resetear botón
+                    btn.disabled = false;
+                    btnText.style.display = 'block';
+                    btnLoading.style.display = 'none';
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                errorText.textContent = 'Error de conexión';
+                errorDiv.style.display = 'block';
+                
+                // Resetear botón
+                btn.disabled = false;
+                btnText.style.display = 'block';
+                btnLoading.style.display = 'none';
+            }
+        });
+
+        // Animación de entrada
+        window.addEventListener('load', function() {
+            document.querySelector('.login-card').classList.add('animate-in');
+        });
+
+        // Focus automático en el campo usuario
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').focus();
+        });
+    </script>
+</body>
+</html>

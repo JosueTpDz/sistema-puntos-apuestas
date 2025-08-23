@@ -1,514 +1,249 @@
-from flask import Flask, render_template, request, jsonify, session
-from flask_cors import CORS
-import mysql.connector
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
+import sqlite3
+import hashlib
+from datetime import datetime, timedelta
 import os
-from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from functools import wraps
+import json
 
 app = Flask(__name__)
 app.secret_key = 'mbl_casa_apuestas_2024_secret_key'
-CORS(app)
 
-# Configuración de base de datos
-DB_CONFIG = {
-    'host': os.getenv("MYSQLHOST", "localhost"),
-    'user': os.getenv("MYSQLUSER", "root"),
-    'password': os.getenv("MYSQLPASSWORD", ""),
-    'database': os.getenv("MYSQLDATABASE", "mbl_casino"),
-    'port': int(os.getenv("MYSQLPORT", 3306))
-}
+DATABASE = 'backend/database.db'
 
 def get_db_connection():
-    """Crear conexión a la base de datos"""
-    try:
-        return mysql.connector.connect(**DB_CONFIG)
-    except mysql.connector.Error as e:
-        print(f"Error conectando a MySQL: {e}")
-        raise
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-def init_database():
-    """Inicializar todas las tablas necesarias"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Tabla usuarios MBL
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS mbl_usuarios (
-            id INT PRIMARY KEY AUTO_INCREMENT,
-            username VARCHAR(50) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            role VARCHAR(50) NOT NULL,
-            is_admin BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-        """)
-        
-        # Tabla clientes MBL
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS mbl_clientes (
-            id INT PRIMARY KEY AUTO_INCREMENT,
-            nombre_completo VARCHAR(255) NOT NULL,
-            dni VARCHAR(8) UNIQUE NOT NULL,
-            telefono VARCHAR(20) NOT NULL,
-            usuario_id INT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_usuario (usuario_id),
-            INDEX idx_dni (dni),
-            FOREIGN KEY (usuario_id) REFERENCES mbl_usuarios(id) ON DELETE CASCADE
-        )
-        """)
-        
-        # Tabla canjes MBL
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS mbl_canjes (
-            id INT PRIMARY KEY AUTO_INCREMENT,
-            cliente_id INT NOT NULL,
-            usuario_id INT NOT NULL,
-            monto DECIMAL(10,2) NOT NULL,
-            descripcion VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_cliente (cliente_id),
-            INDEX idx_usuario (usuario_id),
-            INDEX idx_fecha (created_at),
-            FOREIGN KEY (cliente_id) REFERENCES mbl_clientes(id) ON DELETE CASCADE,
-            FOREIGN KEY (usuario_id) REFERENCES mbl_usuarios(id) ON DELETE CASCADE
-        )
-        """)
-        
-        # Tabla puntos (para sistema de puntos futuro)
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS mbl_puntos (
-            id INT PRIMARY KEY AUTO_INCREMENT,
-            cliente_id INT NOT NULL,
-            usuario_id INT NOT NULL,
-            puntos_anteriores INT DEFAULT 0,
-            puntos_cambio INT NOT NULL,
-            puntos_nuevos INT NOT NULL,
-            razon VARCHAR(255) NOT NULL,
-            tipo ENUM('suma', 'resta') NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_cliente (cliente_id),
-            INDEX idx_usuario (usuario_id),
-            FOREIGN KEY (cliente_id) REFERENCES mbl_clientes(id) ON DELETE CASCADE,
-            FOREIGN KEY (usuario_id) REFERENCES mbl_usuarios(id) ON DELETE CASCADE
-        )
-        """)
-        
-        # Insertar usuarios por defecto si no existen
-        cursor.execute("SELECT COUNT(*) FROM mbl_usuarios")
-        if cursor.fetchone()[0] == 0:
-            usuarios_default = [
-                ('admin', 'admin123', 'Administrador', True),
-                ('user1', 'user123', 'Operador 1', False),
-                ('user2', 'user123', 'Operador 2', False),
-                ('user3', 'user123', 'Operador 3', False),
-                ('user4', 'user123', 'Operador 4', False),
-                ('user5', 'user123', 'Operador 5', False),
-                ('user6', 'user123', 'Operador 6', False)
-            ]
-            
-            for username, password, role, is_admin in usuarios_default:
-                password_hash = generate_password_hash(password)
-                cursor.execute(
-                    "INSERT INTO mbl_usuarios (username, password_hash, role, is_admin) VALUES (%s, %s, %s, %s)",
-                    (username, password_hash, role, is_admin)
-                )
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print("✅ Base de datos MBL Casa de Apuestas inicializada correctamente")
-        
-    except Exception as e:
-        print(f"❌ Error al inicializar base de datos: {e}")
-        raise
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
-# ================================
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session or session.get('role') != 'admin':
+            return jsonify({'success': False, 'message': 'Acceso denegado'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 # RUTAS PRINCIPALES
-# ================================
-
 @app.route('/')
 def index():
-    """Página de inicio - redirige a MBL"""
-    return redirect('/mbl')
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('index.html')
 
-@app.route('/mbl')
-def mbl_home():
-    """Página principal del sistema MBL"""
-    init_database()  # Asegurar que las tablas existan
-    return render_template('mbl.html')
+@app.route('/login')
+def login():
+    return render_template('login.html')
 
-# ================================
-# API ENDPOINTS - AUTENTICACIÓN
-# ================================
-
+# API AUTHENTICATION
 @app.route('/api/mbl/login', methods=['POST'])
 def api_login():
-    """Endpoint para login de usuarios"""
     try:
         data = request.get_json()
-        username = data.get('username', '').strip()
-        password = data.get('password', '').strip()
+        username = data.get('username')
+        password = data.get('password')
         
         if not username or not password:
-            return jsonify({
-                'success': False,
-                'message': 'Username y password son requeridos'
-            }), 400
+            return jsonify({'success': False, 'message': 'Usuario y contraseña requeridos'})
         
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        cursor.execute(
-            "SELECT id, username, password_hash, role, is_admin FROM mbl_usuarios WHERE username = %s",
-            (username,)
-        )
-        user = cursor.fetchone()
-        
-        cursor.close()
+        user = conn.execute(
+            'SELECT * FROM mbl_usuarios WHERE username = ? AND password = ?',
+            (username, hash_password(password))
+        ).fetchone()
         conn.close()
         
-        if user and check_password_hash(user['password_hash'], password):
-            # Guardar en sesión
+        if user:
             session['user_id'] = user['id']
             session['username'] = user['username']
-            session['is_admin'] = user['is_admin']
-            
+            session['role'] = user['role']
             return jsonify({
                 'success': True,
                 'message': 'Login exitoso',
                 'user': {
                     'id': user['id'],
                     'username': user['username'],
-                    'role': user['role'],
-                    'is_admin': user['is_admin']
+                    'role': user['role']
                 }
             })
         else:
-            return jsonify({
-                'success': False,
-                'message': 'Credenciales incorrectas'
-            }), 401
-            
+            return jsonify({'success': False, 'message': 'Credenciales inválidas'})
+    
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error interno: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
 @app.route('/api/mbl/logout', methods=['POST'])
 def api_logout():
-    """Endpoint para logout"""
     session.clear()
     return jsonify({'success': True, 'message': 'Logout exitoso'})
 
-# ================================
-# API ENDPOINTS - CLIENTES
-# ================================
-
-@app.route('/api/mbl/clientes/<int:user_id>', methods=['GET'])
-def api_get_clientes(user_id):
-    """Obtener clientes de un usuario específico"""
+# API CLIENTES
+@app.route('/api/mbl/clientes', methods=['GET'])
+@login_required
+def get_clientes():
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        # Verificar que el usuario actual puede ver estos clientes
-        if 'user_id' not in session:
-            return jsonify({'success': False, 'message': 'No autenticado'}), 401
-        
-        # Admin puede ver todos, usuarios normales solo los suyos
-        if not session.get('is_admin') and session['user_id'] != user_id:
-            return jsonify({'success': False, 'message': 'No autorizado'}), 403
-        
-        cursor.execute("""
-            SELECT id, nombre_completo, dni, telefono, created_at, updated_at
-            FROM mbl_clientes 
-            WHERE usuario_id = %s 
-            ORDER BY created_at DESC
-        """, (user_id,))
-        
-        clientes = cursor.fetchall()
-        
-        # Convertir datetime a string para JSON
-        for cliente in clientes:
-            if cliente['created_at']:
-                cliente['created_at'] = cliente['created_at'].isoformat()
-            if cliente['updated_at']:
-                cliente['updated_at'] = cliente['updated_at'].isoformat()
-        
-        cursor.close()
+        clientes = conn.execute('SELECT * FROM mbl_clientes ORDER BY fecha_registro DESC').fetchall()
         conn.close()
         
         return jsonify({
             'success': True,
-            'clientes': clientes
+            'clientes': [dict(cliente) for cliente in clientes]
         })
-        
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error al obtener clientes: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
 @app.route('/api/mbl/clientes', methods=['POST'])
-def api_add_cliente():
-    """Agregar nuevo cliente"""
+@login_required
+def create_cliente():
     try:
         data = request.get_json()
         
-        # Validar datos
-        required_fields = ['nombre_completo', 'dni', 'telefono', 'usuario_id']
-        for field in required_fields:
-            if not data.get(field, '').strip():
-                return jsonify({
-                    'success': False,
-                    'message': f'El campo {field} es requerido'
-                }), 400
-        
-        nombre_completo = data['nombre_completo'].strip()
-        dni = data['dni'].strip()
-        telefono = data['telefono'].strip()
-        usuario_id = int(data['usuario_id'])
-        
-        # Validar DNI
-        if len(dni) != 8 or not dni.isdigit():
-            return jsonify({
-                'success': False,
-                'message': 'El DNI debe tener exactamente 8 dígitos numéricos'
-            }), 400
-        
-        # Verificar autorización
-        if 'user_id' not in session:
-            return jsonify({'success': False, 'message': 'No autenticado'}), 401
-        
-        if not session.get('is_admin') and session['user_id'] != usuario_id:
-            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        # Validaciones básicas
+        if not data.get('nombre') or not data.get('cedula'):
+            return jsonify({'success': False, 'message': 'Nombre y cédula son requeridos'})
         
         conn = get_db_connection()
-        cursor = conn.cursor()
         
-        # Verificar si el DNI ya existe
-        cursor.execute("SELECT id FROM mbl_clientes WHERE dni = %s", (dni,))
-        if cursor.fetchone():
-            cursor.close()
+        # Verificar si ya existe
+        existing = conn.execute('SELECT id FROM mbl_clientes WHERE cedula = ?', (data['cedula'],)).fetchone()
+        if existing:
             conn.close()
-            return jsonify({
-                'success': False,
-                'message': 'Este DNI ya está registrado en el sistema'
-            }), 409
+            return jsonify({'success': False, 'message': 'Cliente ya existe con esa cédula'})
         
-        # Insertar cliente
-        cursor.execute("""
-            INSERT INTO mbl_clientes (nombre_completo, dni, telefono, usuario_id) 
-            VALUES (%s, %s, %s, %s)
-        """, (nombre_completo, dni, telefono, usuario_id))
-        
+        # Crear cliente
+        conn.execute('''
+            INSERT INTO mbl_clientes (nombre, cedula, telefono, email, fecha_registro, activo)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            data['nombre'],
+            data['cedula'],
+            data.get('telefono', ''),
+            data.get('email', ''),
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            1
+        ))
         conn.commit()
-        cursor.close()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'message': 'Cliente agregado exitosamente'
-        })
-        
-    except ValueError as e:
-        return jsonify({
-            'success': False,
-            'message': 'Datos inválidos'
-        }), 400
+        return jsonify({'success': True, 'message': 'Cliente creado exitosamente'})
+    
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error al agregar cliente: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
-# ================================
-# API ENDPOINTS - CANJES
-# ================================
-
-@app.route('/api/mbl/canjes/<int:user_id>', methods=['GET'])
-def api_get_canjes(user_id):
-    """Obtener canjes de un usuario específico"""
+@app.route('/api/mbl/clientes/<int:cliente_id>', methods=['PUT'])
+@login_required
+def update_cliente(cliente_id):
     try:
-        # Verificar autorización
-        if 'user_id' not in session:
-            return jsonify({'success': False, 'message': 'No autenticado'}), 401
-        
-        if not session.get('is_admin') and session['user_id'] != user_id:
-            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        data = request.get_json()
         
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        conn.execute('''
+            UPDATE mbl_clientes 
+            SET nombre = ?, telefono = ?, email = ?
+            WHERE id = ?
+        ''', (data['nombre'], data.get('telefono', ''), data.get('email', ''), cliente_id))
+        conn.commit()
+        conn.close()
         
-        cursor.execute("""
-            SELECT 
-                c.id, c.monto, c.descripcion, c.created_at,
-                cl.nombre_completo as cliente_nombre, 
-                cl.dni as cliente_dni
+        return jsonify({'success': True, 'message': 'Cliente actualizado exitosamente'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+@app.route('/api/mbl/clientes/<int:cliente_id>', methods=['DELETE'])
+@login_required
+def delete_cliente(cliente_id):
+    try:
+        conn = get_db_connection()
+        conn.execute('DELETE FROM mbl_clientes WHERE id = ?', (cliente_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Cliente eliminado exitosamente'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+# API CANJES
+@app.route('/api/mbl/canjes', methods=['GET'])
+@login_required
+def get_canjes():
+    try:
+        conn = get_db_connection()
+        canjes = conn.execute('''
+            SELECT c.*, cl.nombre as cliente_nombre, cl.cedula as cliente_cedula
             FROM mbl_canjes c
-            JOIN mbl_clientes cl ON c.cliente_id = cl.id
-            WHERE c.usuario_id = %s
-            ORDER BY c.created_at DESC
-            LIMIT 100
-        """, (user_id,))
-        
-        canjes = cursor.fetchall()
-        
-        # Convertir datetime y Decimal para JSON
-        for canje in canjes:
-            if canje['created_at']:
-                canje['created_at'] = canje['created_at'].isoformat()
-            canje['monto'] = float(canje['monto'])
-        
-        cursor.close()
+            LEFT JOIN mbl_clientes cl ON c.cliente_id = cl.id
+            ORDER BY c.fecha_canje DESC
+        ''').fetchall()
         conn.close()
         
         return jsonify({
             'success': True,
-            'canjes': canjes
+            'canjes': [dict(canje) for canje in canjes]
         })
-        
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error al obtener canjes: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
 @app.route('/api/mbl/canjes', methods=['POST'])
-def api_add_canje():
-    """Registrar nuevo canje"""
+@login_required
+def create_canje():
     try:
         data = request.get_json()
         
-        # Validar datos
-        required_fields = ['cliente_id', 'usuario_id', 'monto', 'descripcion']
-        for field in required_fields:
-            if field not in data or (isinstance(data[field], str) and not data[field].strip()):
-                return jsonify({
-                    'success': False,
-                    'message': f'El campo {field} es requerido'
-                }), 400
-        
-        cliente_id = int(data['cliente_id'])
-        usuario_id = int(data['usuario_id'])
-        monto = float(data['monto'])
-        descripcion = data['descripcion'].strip()
-        
-        # Validar monto
-        if monto <= 0:
-            return jsonify({
-                'success': False,
-                'message': 'El monto debe ser mayor a cero'
-            }), 400
-        
-        # Verificar autorización
-        if 'user_id' not in session:
-            return jsonify({'success': False, 'message': 'No autenticado'}), 401
-        
-        if not session.get('is_admin') and session['user_id'] != usuario_id:
-            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        if not data.get('cliente_id') or not data.get('monto'):
+            return jsonify({'success': False, 'message': 'Cliente y monto son requeridos'})
         
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Verificar que el cliente existe y pertenece al usuario
-        cursor.execute("""
-            SELECT id FROM mbl_clientes 
-            WHERE id = %s AND usuario_id = %s
-        """, (cliente_id, usuario_id))
-        
-        if not cursor.fetchone():
-            cursor.close()
-            conn.close()
-            return jsonify({
-                'success': False,
-                'message': 'Cliente no encontrado o no autorizado'
-            }), 404
-        
-        # Insertar canje
-        cursor.execute("""
-            INSERT INTO mbl_canjes (cliente_id, usuario_id, monto, descripcion) 
-            VALUES (%s, %s, %s, %s)
-        """, (cliente_id, usuario_id, monto, descripcion))
-        
+        conn.execute('''
+            INSERT INTO mbl_canjes (cliente_id, monto, descripcion, fecha_canje, usuario_registro)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            data['cliente_id'],
+            float(data['monto']),
+            data.get('descripcion', ''),
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            session['username']
+        ))
         conn.commit()
-        cursor.close()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'message': 'Canje registrado exitosamente'
-        })
-        
-    except ValueError as e:
-        return jsonify({
-            'success': False,
-            'message': 'Datos numéricos inválidos'
-        }), 400
+        return jsonify({'success': True, 'message': 'Canje registrado exitosamente'})
+    
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error al registrar canje: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
-# ================================
-# API ENDPOINTS - ADMINISTRACIÓN
-# ================================
-
+# API ADMIN - ESTADÍSTICAS BÁSICAS
 @app.route('/api/mbl/admin/stats', methods=['GET'])
-def api_admin_stats():
-    """Obtener estadísticas generales del sistema (solo admin)"""
+@admin_required
+def get_admin_stats():
     try:
-        # Verificar que es admin
-        if not session.get('is_admin'):
-            return jsonify({'success': False, 'message': 'Acceso denegado'}), 403
-        
         conn = get_db_connection()
-        cursor = conn.cursor()
         
-        # Total clientes
-        cursor.execute("SELECT COUNT(*) FROM mbl_clientes")
-        total_clientes = cursor.fetchone()[0]
+        # Estadísticas básicas
+        total_clientes = conn.execute('SELECT COUNT(*) as count FROM mbl_clientes').fetchone()['count']
+        total_canjes = conn.execute('SELECT COUNT(*) as count FROM mbl_canjes').fetchone()['count']
+        total_monto = conn.execute('SELECT COALESCE(SUM(monto), 0) as total FROM mbl_canjes').fetchone()['total']
         
-        # Total canjes
-        cursor.execute("SELECT COUNT(*) FROM mbl_canjes")
-        total_canjes = cursor.fetchone()[0]
+        # Canjes hoy
+        today = datetime.now().strftime('%Y-%m-%d')
+        canjes_hoy = conn.execute(
+            'SELECT COUNT(*) as count FROM mbl_canjes WHERE DATE(fecha_canje) = ?', 
+            (today,)
+        ).fetchone()['count']
         
-        # Monto total canjeado
-        cursor.execute("SELECT COALESCE(SUM(monto), 0) FROM mbl_canjes")
-        monto_total = float(cursor.fetchone()[0])
-        
-        # Estadísticas por usuario
-        cursor.execute("""
-            SELECT 
-                u.username, u.role,
-                COUNT(DISTINCT c.id) as clientes_count,
-                COUNT(DISTINCT cj.id) as canjes_count,
-                COALESCE(SUM(cj.monto), 0) as monto_total
-            FROM mbl_usuarios u
-            LEFT JOIN mbl_clientes c ON u.id = c.usuario_id
-            LEFT JOIN mbl_canjes cj ON u.id = cj.usuario_id
-            WHERE u.is_admin = FALSE
-            GROUP BY u.id, u.username, u.role
-            ORDER BY u.username
-        """)
-        
-        stats_por_usuario = []
-        for row in cursor.fetchall():
-            stats_por_usuario.append({
-                'username': row[0],
-                'role': row[1],
-                'clientes': row[2],
-                'canjes': row[3],
-                'monto_total': float(row[4])
-            })
-        
-        cursor.close()
         conn.close()
         
         return jsonify({
@@ -516,131 +251,321 @@ def api_admin_stats():
             'stats': {
                 'total_clientes': total_clientes,
                 'total_canjes': total_canjes,
-                'monto_total': monto_total,
-                'stats_por_usuario': stats_por_usuario
+                'total_monto': float(total_monto),
+                'canjes_hoy': canjes_hoy
             }
         })
-        
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'Error al obtener estadísticas: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
-@app.route('/api/mbl/admin/canjes-recientes', methods=['GET'])
-def api_admin_canjes_recientes():
-    """Obtener canjes recientes de todo el sistema (solo admin)"""
+# ============ NUEVOS ENDPOINTS ANALYTICS ============
+
+@app.route('/api/mbl/analytics/daily-sales', methods=['GET'])
+@login_required
+def get_daily_sales():
+    """Ventas diarias últimos 30 días"""
     try:
-        if not session.get('is_admin'):
-            return jsonify({'success': False, 'message': 'Acceso denegado'}), 403
+        days = int(request.args.get('days', 30))
         
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
         
-        cursor.execute("""
+        # Obtener ventas por día
+        daily_sales = conn.execute('''
             SELECT 
-                cj.id, cj.monto, cj.descripcion, cj.created_at,
-                c.nombre_completo as cliente_nombre,
-                c.dni as cliente_dni,
-                u.username, u.role
-            FROM mbl_canjes cj
-            JOIN mbl_clientes c ON cj.cliente_id = c.id
-            JOIN mbl_usuarios u ON cj.usuario_id = u.id
-            ORDER BY cj.created_at DESC
-            LIMIT 50
-        """)
+                DATE(fecha_canje) as fecha,
+                COUNT(*) as total_canjes,
+                COALESCE(SUM(monto), 0) as total_monto
+            FROM mbl_canjes 
+            WHERE fecha_canje >= datetime('now', '-{} days')
+            GROUP BY DATE(fecha_canje)
+            ORDER BY fecha DESC
+        '''.format(days)).fetchall()
         
-        canjes = cursor.fetchall()
-        
-        for canje in canjes:
-            if canje['created_at']:
-                canje['created_at'] = canje['created_at'].isoformat()
-            canje['monto'] = float(canje['monto'])
-        
-        cursor.close()
         conn.close()
+        
+        # Convertir a formato para Chart.js
+        labels = []
+        canjes_data = []
+        montos_data = []
+        
+        for row in daily_sales:
+            # Formatear fecha para mostrar
+            fecha_obj = datetime.strptime(row['fecha'], '%Y-%m-%d')
+            labels.append(fecha_obj.strftime('%d/%m'))
+            canjes_data.append(row['total_canjes'])
+            montos_data.append(float(row['total_monto']))
+        
+        # Revertir para mostrar cronológicamente
+        labels.reverse()
+        canjes_data.reverse()
+        montos_data.reverse()
         
         return jsonify({
             'success': True,
-            'canjes': canjes
+            'data': {
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': 'Canjes Diarios',
+                        'data': canjes_data,
+                        'borderColor': '#8B5CF6',
+                        'backgroundColor': 'rgba(139, 92, 246, 0.1)',
+                        'tension': 0.4
+                    },
+                    {
+                        'label': 'Monto Diario ($)',
+                        'data': montos_data,
+                        'borderColor': '#10B981',
+                        'backgroundColor': 'rgba(16, 185, 129, 0.1)',
+                        'tension': 0.4,
+                        'yAxisID': 'y1'
+                    }
+                ]
+            }
         })
-        
+    
     except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+
+@app.route('/api/mbl/analytics/top-clients', methods=['GET'])
+@login_required
+def get_top_clients():
+    """Top clientes por monto canjeado"""
+    try:
+        limit = int(request.args.get('limit', 10))
+        
+        conn = get_db_connection()
+        
+        top_clients = conn.execute('''
+            SELECT 
+                cl.nombre,
+                cl.cedula,
+                COUNT(c.id) as total_canjes,
+                COALESCE(SUM(c.monto), 0) as total_monto
+            FROM mbl_clientes cl
+            LEFT JOIN mbl_canjes c ON cl.id = c.cliente_id
+            GROUP BY cl.id, cl.nombre, cl.cedula
+            HAVING total_monto > 0
+            ORDER BY total_monto DESC
+            LIMIT ?
+        ''', (limit,)).fetchall()
+        
+        conn.close()
+        
+        # Formatear para Chart.js
+        labels = []
+        data = []
+        colors = [
+            '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#3B82F6',
+            '#EC4899', '#8B5A2B', '#6366F1', '#84CC16', '#F97316'
+        ]
+        
+        for i, client in enumerate(top_clients):
+            labels.append(f"{client['nombre'][:20]}...")
+            data.append(float(client['total_monto']))
+        
         return jsonify({
-            'success': False,
-            'message': f'Error al obtener canjes recientes: {str(e)}'
-        }), 500
+            'success': True,
+            'data': {
+                'labels': labels,
+                'datasets': [{
+                    'label': 'Monto Total Canjeado',
+                    'data': data,
+                    'backgroundColor': colors[:len(data)],
+                    'borderWidth': 0
+                }]
+            },
+            'clients_detail': [dict(client) for client in top_clients]
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
-# ================================
-# MANEJO DE ERRORES
-# ================================
+@app.route('/api/mbl/analytics/trends', methods=['GET'])
+@login_required
+def get_trends():
+    """Tendencias y comparativas"""
+    try:
+        conn = get_db_connection()
+        
+        # Comparativa semanal
+        current_week = conn.execute('''
+            SELECT 
+                COUNT(*) as canjes,
+                COALESCE(SUM(monto), 0) as monto
+            FROM mbl_canjes 
+            WHERE fecha_canje >= datetime('now', '-7 days')
+        ''').fetchone()
+        
+        previous_week = conn.execute('''
+            SELECT 
+                COUNT(*) as canjes,
+                COALESCE(SUM(monto), 0) as monto
+            FROM mbl_canjes 
+            WHERE fecha_canje >= datetime('now', '-14 days')
+            AND fecha_canje < datetime('now', '-7 days')
+        ''').fetchone()
+        
+        # Promedio por hora del día
+        hourly_avg = conn.execute('''
+            SELECT 
+                strftime('%H', fecha_canje) as hora,
+                COUNT(*) as total_canjes,
+                AVG(monto) as promedio_monto
+            FROM mbl_canjes
+            WHERE fecha_canje >= datetime('now', '-30 days')
+            GROUP BY strftime('%H', fecha_canje)
+            ORDER BY hora
+        ''').fetchall()
+        
+        # Top días de la semana
+        weekday_stats = conn.execute('''
+            SELECT 
+                CASE strftime('%w', fecha_canje)
+                    WHEN '0' THEN 'Domingo'
+                    WHEN '1' THEN 'Lunes'
+                    WHEN '2' THEN 'Martes'
+                    WHEN '3' THEN 'Miércoles'
+                    WHEN '4' THEN 'Jueves'
+                    WHEN '5' THEN 'Viernes'
+                    WHEN '6' THEN 'Sábado'
+                END as dia_semana,
+                COUNT(*) as total_canjes,
+                AVG(monto) as promedio_monto
+            FROM mbl_canjes
+            WHERE fecha_canje >= datetime('now', '-30 days')
+            GROUP BY strftime('%w', fecha_canje)
+            ORDER BY total_canjes DESC
+        ''').fetchall()
+        
+        conn.close()
+        
+        # Calcular variaciones
+        canjes_change = 0
+        monto_change = 0
+        
+        if previous_week['canjes'] > 0:
+            canjes_change = ((current_week['canjes'] - previous_week['canjes']) / previous_week['canjes']) * 100
+        
+        if previous_week['monto'] > 0:
+            monto_change = ((current_week['monto'] - previous_week['monto']) / previous_week['monto']) * 100
+        
+        return jsonify({
+            'success': True,
+            'trends': {
+                'weekly_comparison': {
+                    'current_week': {
+                        'canjes': current_week['canjes'],
+                        'monto': float(current_week['monto'])
+                    },
+                    'previous_week': {
+                        'canjes': previous_week['canjes'],
+                        'monto': float(previous_week['monto'])
+                    },
+                    'changes': {
+                        'canjes_percent': round(canjes_change, 1),
+                        'monto_percent': round(monto_change, 1)
+                    }
+                },
+                'hourly_pattern': {
+                    'labels': [f"{row['hora']}:00" for row in hourly_avg],
+                    'canjes': [row['total_canjes'] for row in hourly_avg],
+                    'montos': [float(row['promedio_monto']) for row in hourly_avg]
+                },
+                'weekday_ranking': [dict(row) for row in weekday_stats]
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({
-        'success': False,
-        'message': 'Endpoint no encontrado'
-    }), 404
-
-@app.errorhandler(405)
-def method_not_allowed(error):
-    return jsonify({
-        'success': False,
-        'message': 'Método no permitido'
-    }), 405
-
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({
-        'success': False,
-        'message': 'Error interno del servidor'
-    }), 500
-
-# ================================
-# FUNCIONES DE UTILIDAD
-# ================================
-
-def validate_session():
-    """Validar que el usuario esté autenticado"""
-    return 'user_id' in session
-
-def is_admin():
-    """Verificar si el usuario actual es admin"""
-    return session.get('is_admin', False)
-
-def get_current_user_id():
-    """Obtener el ID del usuario actual"""
-    return session.get('user_id')
-
-# ================================
-# CONFIGURACIÓN Y ARRANQUE
-# ================================
+@app.route('/api/mbl/analytics/kpis', methods=['GET'])
+@login_required
+def get_kpis():
+    """KPIs principales en tiempo real"""
+    try:
+        conn = get_db_connection()
+        
+        today = datetime.now().strftime('%Y-%m-%d')
+        current_month = datetime.now().strftime('%Y-%m')
+        
+        # KPIs del día
+        today_stats = conn.execute('''
+            SELECT 
+                COUNT(*) as canjes_hoy,
+                COALESCE(SUM(monto), 0) as monto_hoy,
+                COALESCE(AVG(monto), 0) as promedio_hoy
+            FROM mbl_canjes
+            WHERE DATE(fecha_canje) = ?
+        ''', (today,)).fetchone()
+        
+        # KPIs del mes
+        month_stats = conn.execute('''
+            SELECT 
+                COUNT(*) as canjes_mes,
+                COALESCE(SUM(monto), 0) as monto_mes,
+                COUNT(DISTINCT cliente_id) as clientes_activos_mes
+            FROM mbl_canjes
+            WHERE strftime('%Y-%m', fecha_canje) = ?
+        ''', (current_month,)).fetchone()
+        
+        # Cliente más activo del mes
+        top_client_month = conn.execute('''
+            SELECT 
+                cl.nombre,
+                COUNT(c.id) as total_canjes,
+                SUM(c.monto) as total_monto
+            FROM mbl_canjes c
+            JOIN mbl_clientes cl ON c.cliente_id = cl.id
+            WHERE strftime('%Y-%m', c.fecha_canje) = ?
+            GROUP BY c.cliente_id, cl.nombre
+            ORDER BY total_canjes DESC
+            LIMIT 1
+        ''', (current_month,)).fetchone()
+        
+        # Crecimiento mensual
+        previous_month = (datetime.now() - timedelta(days=30)).strftime('%Y-%m')
+        previous_month_stats = conn.execute('''
+            SELECT 
+                COUNT(*) as canjes,
+                COALESCE(SUM(monto), 0) as monto
+            FROM mbl_canjes
+            WHERE strftime('%Y-%m', fecha_canje) = ?
+        ''', (previous_month,)).fetchone()
+        
+        conn.close()
+        
+        # Calcular crecimiento
+        growth_canjes = 0
+        growth_monto = 0
+        
+        if previous_month_stats and previous_month_stats['canjes'] > 0:
+            growth_canjes = ((month_stats['canjes_mes'] - previous_month_stats['canjes']) / previous_month_stats['canjes']) * 100
+        
+        if previous_month_stats and previous_month_stats['monto'] > 0:
+            growth_monto = ((month_stats['monto_mes'] - previous_month_stats['monto']) / previous_month_stats['monto']) * 100
+        
+        return jsonify({
+            'success': True,
+            'kpis': {
+                'today': {
+                    'canjes': today_stats['canjes_hoy'],
+                    'monto': float(today_stats['monto_hoy']),
+                    'promedio': float(today_stats['promedio_hoy'])
+                },
+                'month': {
+                    'canjes': month_stats['canjes_mes'],
+                    'monto': float(month_stats['monto_mes']),
+                    'clientes_activos': month_stats['clientes_activos_mes'],
+                    'growth_canjes': round(growth_canjes, 1),
+                    'growth_monto': round(growth_monto, 1)
+                },
+                'top_client': dict(top_client_month) if top_client_month else None
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
 if __name__ == '__main__':
-    # Asegurar que las tablas existan al iniciar
-    try:
-        init_database()
-        print("🚀 Servidor MBL Casa de Apuestas iniciado correctamente")
-        print(f"📊 Base de datos configurada: {DB_CONFIG['host']}:{DB_CONFIG['port']}")
-        print("🌐 Accede a: http://localhost:5000/mbl")
-        print("\n👤 Usuarios disponibles:")
-        print("   - admin / admin123 (Administrador)")
-        print("   - user1 / user123 (Operador 1)")
-        print("   - user2 / user123 (Operador 2)")
-        print("   - user3 / user123 (Operador 3)")
-        print("   - user4 / user123 (Operador 4)")
-        print("   - user5 / user123 (Operador 5)")
-        print("   - user6 / user123 (Operador 6)")
-    except Exception as e:
-        print(f"❌ Error al inicializar: {e}")
-        exit(1)
-    
-    # Configurar el servidor
-    port = int(os.getenv("PORT", 5000))
-    debug = os.getenv("FLASK_ENV") == "development"
-    
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=debug
-    )
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

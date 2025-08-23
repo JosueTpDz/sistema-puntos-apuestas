@@ -1,522 +1,1077 @@
-// Continuación del código JavaScript
-            this.showMessage('clientMessage', 'Cliente eliminado exitosamente', 'success');
-        }
-    }
-
-    // === CANJE MANAGEMENT ===
-    handleAddCanje(e) {
-        e.preventDefault();
-        const clientId = parseInt(document.getElementById('canjeClient').value);
-        const amount = parseFloat(document.getElementById('canjeAmount').value);
-        const description = document.getElementById('canjeDescription').value.trim();
-
-        if (!clientId || amount <= 0 || !description) {
-            this.showMessage('canjeMessage', 'Por favor complete todos los campos correctamente', 'error');
-            return;
-        }
-
-        const canje = {
-            id: this.generateId(),
-            clientId,
-            amount,
-            description,
-            user: this.currentUser,
-            createdAt: new Date().toLocaleString()
-        };
-
-        this.canjesData[this.currentUser].push(canje);
-        this.showMessage('canjeMessage', 'Canje registrado exitosamente', 'success');
-        document.getElementById('canjeForm').reset();
-        this.updateAllData();
-    }
-
-    updateCanjeClientSelect() {
-        const select = document.getElementById('canjeClient');
-        const clients = this.clientsData[this.currentUser] || [];
-
-        select.innerHTML = '<option value="">Seleccione un cliente</option>';
-        clients.forEach(client => {
-            select.innerHTML += `<option value="${client.id}">${client.name} - ${client.dni}</option>`;
-        });
-    }
-
-    renderCanjes() {
-        const container = document.getElementById('canjesList');
-        const canjes = this.canjesData[this.currentUser] || [];
-
-        if (canjes.length === 0) {
-            container.innerHTML = '<p class="text-center" style="color: var(--text-secondary); padding: 40px;">No hay canjes registrados</p>';
-            return;
-        }
-
-        container.innerHTML = canjes.map(canje => {
-            const client = this.clientsData[this.currentUser].find(c => c.id === canje.clientId);
-            return `
-                <div class="list-item">
-                    <div class="item-header">
-                        <div>
-                            <div class="item-title">${client ? client.name : 'Cliente no encontrado'}</div>
-                            <div class="item-subtitle">Canje registrado: ${canje.createdAt}</div>
-                        </div>
-                        <div class="item-actions">
-                            <button onclick="casinoApp.deleteCanje(${canje.id})" class="btn btn-danger" title="Eliminar Canje">
-                                <span class="btn-icon">🗑️</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="item-info">
-                        <div class="info-item">
-                            <div class="info-label">Monto</div>
-                            <div class="info-value amount-display">S/ ${canje.amount.toFixed(2)}</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Descripción</div>
-                            <div class="info-value">${canje.description}</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Cliente DNI</div>
-                            <div class="info-value">${client ? client.dni : 'N/A'}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    deleteCanje(canjeId) {
-        if (confirm('¿Está seguro de eliminar este canje?')) {
-            this.canjesData[this.currentUser] = this.canjesData[this.currentUser].filter(canje => canje.id !== canjeId);
-            this.updateAllData();
-            this.showMessage('canjeMessage', 'Canje eliminado exitosamente', 'success');
-        }
-    }
-
-    // === POINTS MANAGEMENT ===
-    handleAddPoints(e) {
-        e.preventDefault();
-        const clientId = parseInt(document.getElementById('pointsClient').value);
-        const points = parseInt(document.getElementById('pointsAmount').value);
-        const reason = document.getElementById('pointsReason').value.trim();
-
-        if (!clientId || !points || !reason) {
-            this.showMessage('pointsMessage', 'Por favor complete todos los campos', 'error');
-            return;
-        }
-
-        this.addPointsToClient(clientId, points, 'add', reason);
-        document.getElementById('pointsForm').reset();
-    }
-
-    subtractPoints() {
-        const clientId = parseInt(document.getElementById('pointsClient').value);
-        const points = parseInt(document.getElementById('pointsAmount').value);
-        const reason = document.getElementById('pointsReason').value.trim();
-
-        if (!clientId || !points || !reason) {
-            this.showMessage('pointsMessage', 'Por favor complete todos los campos', 'error');
-            return;
-        }
-
-        if (points > 0) {
-            this.addPointsToClient(clientId, -points, 'subtract', reason);
-            document.getElementById('pointsForm').reset();
-        }
-    }
-
-    addPointsToClient(clientId, points, action, reason) {
-        const client = this.clientsData[this.currentUser].find(c => c.id === clientId);
-        
-        if (!client) {
-            this.showMessage('pointsMessage', 'Cliente no encontrado', 'error');
-            return;
-        }
-
-        if (action === 'subtract' && client.points < Math.abs(points)) {
-            this.showMessage('pointsMessage', 'El cliente no tiene suficientes puntos', 'error');
-            return;
-        }
-
-        client.points += points;
-        this.addPointsHistory(clientId, points, action, reason);
-
-        const message = points > 0 ? 'Puntos agregados exitosamente' : 'Puntos descontados exitosamente';
-        this.showMessage('pointsMessage', message, 'success');
-        this.updateAllData();
-    }
-
-    addPointsHistory(clientId, points, action, reason) {
-        const history = {
-            id: this.generateId(),
-            clientId,
-            points: Math.abs(points),
-            action,
-            reason,
-            user: this.currentUser,
-            createdAt: new Date().toLocaleString()
-        };
-
-        this.pointsHistory[this.currentUser].push(history);
-    }
-
-    updatePointsClientSelect() {
-        const select = document.getElementById('pointsClient');
-        const clients = this.clientsData[this.currentUser] || [];
-
-        select.innerHTML = '<option value="">Seleccione un cliente</option>';
-        clients.forEach(client => {
-            select.innerHTML += `<option value="${client.id}">${client.name} - ${client.points} puntos</option>`;
-        });
-    }
-
-    renderPointsHistory() {
-        const container = document.getElementById('pointsHistory');
-        const history = this.pointsHistory[this.currentUser] || [];
-
-        if (history.length === 0) {
-            container.innerHTML = '<p class="text-center" style="color: var(--text-secondary); padding: 40px;">No hay historial de puntos</p>';
-            return;
-        }
-
-        container.innerHTML = history.map(record => {
-            const client = this.clientsData[this.currentUser].find(c => c.id === record.clientId);
-            const actionIcon = record.action === 'add' ? '➕' : '➖';
-            const actionColor = record.action === 'add' ? 'var(--success-color)' : 'var(--warning-color)';
-
-            return `
-                <div class="list-item">
-                    <div class="item-header">
-                        <div>
-                            <div class="item-title">${client ? client.name : 'Cliente no encontrado'}</div>
-                            <div class="item-subtitle">${record.createdAt}</div>
-                        </div>
-                        <div style="color: ${actionColor}; font-size: 1.5rem;">${actionIcon}</div>
-                    </div>
-                    <div class="item-info">
-                        <div class="info-item">
-                            <div class="info-label">Puntos</div>
-                            <div class="info-value" style="color: ${actionColor};">${record.points}</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Razón</div>
-                            <div class="info-value">${record.reason}</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-label">Acción</div>
-                            <div class="info-value">${record.action === 'add' ? 'Agregar' : 'Descontar'}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // === PRIZE MANAGEMENT ===
-    handleAddPrize(e) {
-        e.preventDefault();
-        const name = document.getElementById('prizeName').value.trim();
-        const points = parseInt(document.getElementById('prizePoints').value);
-        const description = document.getElementById('prizeDescription').value.trim();
-
-        if (!name || !points || points <= 0) {
-            this.showMessage('prizeMessage', 'Por favor complete los campos requeridos', 'error');
-            return;
-        }
-
-        const prize = {
-            id: this.generateId(),
-            name,
-            points,
-            description: description || `Premio ${name}`
-        };
-
-        this.prizes.push(prize);
-        this.showMessage('prizeMessage', 'Premio agregado exitosamente', 'success');
-        document.getElementById('prizeForm').reset();
-        this.renderPrizes();
-    }
-
-    renderPrizes() {
-        const container = document.getElementById('prizesList');
-
-        if (this.prizes.length === 0) {
-            container.innerHTML = '<p class="text-center" style="color: var(--text-secondary); padding: 40px;">No hay premios disponibles</p>';
-            return;
-        }
-
-        container.innerHTML = this.prizes.map(prize => `
-            <div class="list-item">
-                <div class="item-header">
-                    <div>
-                        <div class="item-title">${prize.name}</div>
-                        <div class="item-subtitle">${prize.description}</div>
-                    </div>
-                    <div class="item-actions">
-                        <button onclick="casinoApp.showRedeemModal(${prize.id})" class="btn btn-warning" title="Canjear Premio">
-                            <span class="btn-icon">🎁</span>
-                        </button>
-                        <button onclick="casinoApp.deletePrize(${prize.id})" class="btn btn-danger" title="Eliminar Premio">
-                            <span class="btn-icon">🗑️</span>
-                        </button>
-                    </div>
-                </div>
-                <div class="item-info">
-                    <div class="info-item">
-                        <div class="info-label">Puntos Requeridos</div>
-                        <div class="info-value points-display">${prize.points}</div>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    deletePrize(prizeId) {
-        if (confirm('¿Está seguro de eliminar este premio?')) {
-            this.prizes = this.prizes.filter(prize => prize.id !== prizeId);
-            this.renderPrizes();
-            this.showMessage('prizeMessage', 'Premio eliminado exitosamente', 'success');
-        }
-    }
-
-    // === PRIZE REDEEM SYSTEM ===
-    showRedeemModal(prizeId) {
-        const prize = this.prizes.find(p => p.id === prizeId);
-        if (!prize) return;
-
-        const clients = this.clientsData[this.currentUser] || [];
-        const eligibleClients = clients.filter(client => client.points >= prize.points);
-
-        if (eligibleClients.length === 0) {
-            alert('No hay clientes con suficientes puntos para este premio');
-            return;
-        }
-
-        let clientOptions = eligibleClients.map(client => 
-            `<option value="${client.id}">${client.name} (${client.points} puntos)</option>`
-        ).join('');
-
-        document.getElementById('redeemMessage').innerHTML = `
-            <h4>🏆 ${prize.name}</h4>
-            <p><strong>Puntos requeridos:</strong> ${prize.points}</p>
-            <p><strong>Descripción:</strong> ${prize.description}</p>
-            <br>
-            <label for="redeemClientSelect">Seleccione el cliente:</label>
-            <select id="redeemClientSelect" class="form-control" style="margin-top: 10px;">
-                <option value="">Seleccione un cliente</option>
-                ${clientOptions}
-            </select>
-        `;
-
-        this.currentRedeem = { prizeId, prize };
-        document.getElementById('redeemModal').style.display = 'flex';
-    }
-
-    closeRedeemModal() {
-        document.getElementById('redeemModal').style.display = 'none';
-        this.currentRedeem = null;
-    }
-
-    confirmPrizeRedeem() {
-        if (!this.currentRedeem) return;
-
-        const clientId = parseInt(document.getElementById('redeemClientSelect').value);
-        if (!clientId) {
-            alert('Por favor seleccione un cliente');
-            return;
-        }
-
-        const client = this.clientsData[this.currentUser].find(c => c.id === clientId);
-        const prize = this.currentRedeem.prize;
-
-        if (!client || client.points < prize.points) {
-            alert('El cliente no tiene suficientes puntos');
-            return;
-        }
-
-        // Descontar puntos
-        client.points -= prize.points;
-
-        // Registrar el canje
-        const redeem = {
-            id: this.generateId(),
-            clientId,
-            prizeId: prize.id,
-            pointsUsed: prize.points,
-            user: this.currentUser,
-            createdAt: new Date().toLocaleString()
-        };
-
-        this.redeemHistory[this.currentUser].push(redeem);
-
-        // Agregar al historial de puntos
-        this.addPointsHistory(clientId, -prize.points, 'subtract', `Canje: ${prize.name}`);
-
-        this.showMessage('prizeMessage', `¡Premio canjeado exitosamente para ${client.name}!`, 'success');
-        this.updateAllData();
-        this.closeRedeemModal();
-    }
-
-    // === ADMIN PANEL ===
-    renderAdminData() {
-        if (!this.users[this.currentUser].isAdmin) return;
-
-        // Calcular estadísticas generales
-        let totalClients = 0;
-        let totalCanjes = 0;
-        let totalAmount = 0;
-        let totalPoints = 0;
-
-        for (let user in this.clientsData) {
-            totalClients += this.clientsData[user].length;
-            totalCanjes += this.canjesData[user].length;
-            
-            this.canjesData[user].forEach(canje => {
-                totalAmount += canje.amount;
-            });
-
-            this.clientsData[user].forEach(client => {
-                totalPoints += client.points;
-            });
-        }
-
-        document.getElementById('adminTotalClients').textContent = totalClients;
-        document.getElementById('adminTotalCanjes').textContent = totalCanjes;
-        document.getElementById('adminTotalAmount').textContent = `S/ ${totalAmount.toFixed(2)}`;
-        document.getElementById('adminTotalPoints').textContent = totalPoints;
-
-        // Estadísticas por usuario
-        this.renderUserStats();
-        this.renderRecentRedeems();
-    }
-
-    renderUserStats() {
-        const container = document.getElementById('adminUserStats');
-        let html = '';
-
-        for (let username in this.users) {
-            const user = this.users[username];
-            const clients = this.clientsData[username] || [];
-            const canjes = this.canjesData[username] || [];
-            const totalAmount = canjes.reduce((sum, canje) => sum + canje.amount, 0);
-
-            html += `
-                <div class="admin-user-item">
-                    <div>
-                        <div class="user-name">${user.role}</div>
-                        <div class="user-stats">${clients.length} clientes • ${canjes.length} canjes</div>
-                    </div>
-                    <div class="user-totals">S/ ${totalAmount.toFixed(2)}</div>
-                </div>
-            `;
-        }
-
-        container.innerHTML = html;
-    }
-
-    renderRecentRedeems() {
-        const container = document.getElementById('adminRecentRedeems');
-        let allRedeems = [];
-
-        for (let user in this.redeemHistory) {
-            this.redeemHistory[user].forEach(redeem => {
-                const client = this.clientsData[user].find(c => c.id === redeem.clientId);
-                const prize = this.prizes.find(p => p.id === redeem.prizeId);
-                allRedeems.push({
-                    ...redeem,
-                    clientName: client ? client.name : 'Cliente no encontrado',
-                    prizeName: prize ? prize.name : 'Premio no encontrado',
-                    username: user
-                });
-            });
-        }
-
-        // Ordenar por fecha (más recientes primero)
-        allRedeems.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-        if (allRedeems.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">No hay canjes de premios registrados</p>';
-            return;
-        }
-
-        container.innerHTML = allRedeems.slice(0, 10).map(redeem => `
-            <div class="admin-activity-item">
-                <div>
-                    <div style="font-weight: 600;">${redeem.clientName}</div>
-                    <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                        ${redeem.prizeName} • ${redeem.createdAt} • ${this.users[redeem.username].role}
-                    </div>
-                </div>
-                <div style="color: var(--warning-color); font-weight: bold;">
-                    ${redeem.pointsUsed} pts
-                </div>
-            </div>
-        `).join('');
-    }
-
-    // === UTILITY FUNCTIONS ===
-    generateId() {
-        return Date.now() + Math.random();
-    }
-
-    updateAllData() {
-        this.renderClients();
-        this.renderCanjes();
-        this.renderPointsHistory();
-        this.renderPrizes();
-        this.updateCanjeClientSelect();
-        this.updatePointsClientSelect();
-        this.updateStats();
-        
-        if (this.users[this.currentUser].isAdmin) {
-            this.renderAdminData();
-        }
-    }
-
-    updateStats() {
-        const clients = this.clientsData[this.currentUser] || [];
-        const canjes = this.canjesData[this.currentUser] || [];
-        const totalPoints = clients.reduce((sum, client) => sum + client.points, 0);
-
-        document.getElementById('totalClientsCount').textContent = clients.length;
-        document.getElementById('totalCanjesCount').textContent = canjes.length;
-        document.getElementById('totalPointsCount').textContent = totalPoints;
-        document.getElementById('totalPrizesCount').textContent = this.prizes.length;
-    }
-
-    showMessage(elementId, message, type = 'info') {
-        const element = document.getElementById(elementId);
-        element.textContent = message;
-        element.className = `message ${type}`;
-        element.classList.remove('hidden');
-
-        setTimeout(() => {
-            element.classList.add('hidden');
-        }, 5000);
-    }
-}
-
-// Inicializar la aplicación
-let casinoApp;
-document.addEventListener('DOMContentLoaded', () => {
-    casinoApp = new CasinoSystem();
+// ============ SISTEMA MBL CASA APUESTAS - APP.JS ============
+// Variables globales
+let currentUser = null;
+let charts = {}; // Almacenar instancias de Chart.js
+let analyticsData = {};
+
+// ============ INICIALIZACIÓN ============
+document.addEventListener('DOMContentLoaded', function() {
+    initializeApp();
 });
 
-// Funciones globales para los eventos del HTML
-function showTab(tabName) {
-    casinoApp.showTab(tabName);
+function initializeApp() {
+    // Verificar autenticación
+    if (!checkAuth()) return;
+    
+    // Configurar eventos
+    setupEventListeners();
+    
+    // Cargar datos iniciales
+    loadUserData();
+    loadInitialData();
+    
+    // Inicializar analytics
+    initializeAnalytics();
+    loadDashboardData();
 }
 
-function logout() {
-    casinoApp.logout();
+function checkAuth() {
+    const token = localStorage.getItem('mbl_token');
+    if (!token) {
+        window.location.href = '/login';
+        return false;
+    }
+    return true;
 }
 
-function subtractPoints() {
-    casinoApp.subtractPoints();
+// ============ GESTIÓN DE USUARIO ============
+function loadUserData() {
+    const username = localStorage.getItem('mbl_username');
+    const role = localStorage.getItem('mbl_role');
+    
+    if (username) {
+        document.getElementById('username-display').textContent = username;
+        currentUser = { username, role };
+        
+        // Mostrar tab admin si es admin
+        if (role === 'admin') {
+            document.getElementById('admin-tab').style.display = 'block';
+        }
+    }
 }
 
-function closeRedeemModal() {
-    casinoApp.closeRedeemModal();
+// ============ EVENTOS PRINCIPALES ============
+function setupEventListeners() {
+    // Tabs navigation
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+    
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', logout);
+    
+    // Clientes
+    document.getElementById('new-client-btn').addEventListener('click', openClientModal);
+    document.getElementById('client-search').addEventListener('input', searchClients);
+    document.getElementById('client-form').addEventListener('submit', saveClient);
+    
+    // Canjes
+    document.getElementById('new-canje-btn').addEventListener('click', openCanjeModal);
+    document.getElementById('canje-form').addEventListener('submit', saveCanje);
+    
+    // Modals
+    setupModalEvents();
+    
+    // ============ NUEVOS EVENTOS ANALYTICS ============
+    setupAnalyticsEvents();
 }
 
-function confirmPrizeRedeem() {
-    casinoApp.confirmPrizeRedeem();
+function setupAnalyticsEvents() {
+    // Refresh analytics
+    document.getElementById('refresh-analytics').addEventListener('click', refreshAnalytics);
+    
+    // Cambio de período
+    document.getElementById('analytics-period').addEventListener('change', function() {
+        refreshAnalytics();
+    });
+    
+    // Cambio límite top clientes
+    document.getElementById('top-clients-limit').addEventListener('change', function() {
+        loadTopClients();
+    });
 }
+
+function setupModalEvents() {
+    // Cliente modal
+    document.getElementById('client-modal-close').addEventListener('click', closeClientModal);
+    document.getElementById('client-cancel-btn').addEventListener('click', closeClientModal);
+    
+    // Canje modal
+    document.getElementById('canje-modal-close').addEventListener('click', closeCanjeModal);
+    document.getElementById('canje-cancel-btn').addEventListener('click', closeCanjeModal);
+    
+    // Cerrar modal al hacer clic fuera
+    window.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+}
+
+// ============ NAVEGACIÓN TABS ============
+function switchTab(tabName) {
+    // Remover active de todos los tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    
+    // Activar tab seleccionado
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(tabName).classList.add('active');
+    
+    // Cargar datos específicos del tab
+    switch(tabName) {
+        case 'dashboard':
+            refreshAnalytics();
+            break;
+        case 'clientes':
+            loadClientes();
+            break;
+        case 'canjes':
+            loadCanjes();
+            loadClientesForSelect();
+            break;
+        case 'admin':
+            loadAdminStats();
+            break;
+    }
+}
+
+// ============ FUNCIONES ANALYTICS ============
+
+function initializeAnalytics() {
+    console.log('Inicializando Analytics Dashboard...');
+    
+    // Configurar Chart.js defaults
+    Chart.defaults.color = '#E5E7EB';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.plugins.legend.display = false;
+    
+    // Crear contenedores de gráficos
+    createChartContainers();
+}
+
+function createChartContainers() {
+    // Los canvas ya están en el HTML, solo verificamos que existan
+    const dailySalesCanvas = document.getElementById('daily-sales-chart');
+    const topClientsCanvas = document.getElementById('top-clients-chart');
+    const hourlyPatternCanvas = document.getElementById('hourly-pattern-chart');
+    
+    if (!dailySalesCanvas || !topClientsCanvas || !hourlyPatternCanvas) {
+        console.error('Canvas elements not found');
+        return;
+    }
+    
+    console.log('Canvas elements found, ready to create charts');
+}
+
+async function loadDashboardData() {
+    showLoading('Cargando dashboard...');
+    
+    try {
+        // Cargar todos los datos en paralelo
+        await Promise.all([
+            loadKPIs(),
+            loadDailySales(),
+            loadTopClients(),
+            loadTrends()
+        ]);
+        
+        console.log('Dashboard data loaded successfully');
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showNotification('Error cargando datos del dashboard', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function loadKPIs() {
+    try {
+        const response = await fetch('/api/mbl/analytics/kpis');
+        const data = await response.json();
+        
+        if (data.success) {
+            updateKPIs(data.kpis);
+            analyticsData.kpis = data.kpis;
+        }
+    } catch (error) {
+        console.error('Error loading KPIs:', error);
+    }
+}
+
+function updateKPIs(kpis) {
+    // KPIs Hoy
+    document.getElementById('canjes-hoy').textContent = kpis.today.canjes;
+    document.getElementById('monto-hoy').textContent = `$${formatNumber(kpis.today.monto)}`;
+    
+    // KPIs Mes
+    document.getElementById('canjes-mes').textContent = kpis.month.canjes;
+    document.getElementById('monto-mes').textContent = `$${formatNumber(kpis.month.monto)}`;
+    
+    // Crecimiento mes
+    const growthElement = document.getElementById('growth-mes');
+    const growthPercent = kpis.month.growth_monto;
+    const growthIcon = growthPercent >= 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+    const growthClass = growthPercent >= 0 ? 'positive' : 'negative';
+    
+    growthElement.innerHTML = `
+        <i class="fas ${growthIcon}"></i> ${Math.abs(growthPercent)}%
+    `;
+    growthElement.className = `kpi-growth ${growthClass}`;
+    
+    // Clientes activos
+    document.getElementById('clientes-activos').textContent = kpis.month.clientes_activos;
+    document.getElementById('promedio-canje').textContent = `$${formatNumber(kpis.today.promedio)} promedio`;
+    
+    // Top cliente
+    if (kpis.top_client) {
+        document.getElementById('top-cliente-nombre').textContent = kpis.top_client.nombre.substring(0, 20) + '...';
+        document.getElementById('top-cliente-canjes').textContent = `${kpis.top_client.total_canjes} canjes`;
+        document.getElementById('top-cliente-monto').textContent = `$${formatNumber(kpis.top_client.total_monto)}`;
+    }
+}
+
+async function loadDailySales() {
+    const period = document.getElementById('analytics-period').value;
+    const loadingElement = document.getElementById('daily-sales-loading');
+    
+    try {
+        loadingElement.style.display = 'flex';
+        
+        const response = await fetch(`/api/mbl/analytics/daily-sales?days=${period}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            createDailySalesChart(data.data);
+            analyticsData.dailySales = data.data;
+        }
+    } catch (error) {
+        console.error('Error loading daily sales:', error);
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function createDailySalesChart(data) {
+    const ctx = document.getElementById('daily-sales-chart').getContext('2d');
+    
+    // Destruir gráfico existente
+    if (charts.dailySales) {
+        charts.dailySales.destroy();
+    }
+    
+    charts.dailySales = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [
+                {
+                    label: 'Canjes Diarios',
+                    data: data.datasets[0].data,
+                    borderColor: '#8B5CF6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#8B5CF6',
+                    pointBorderColor: '#8B5CF6',
+                    pointHoverRadius: 6,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Monto Diario ($)',
+                    data: data.datasets[1].data,
+                    borderColor: '#10B981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#10B981',
+                    pointBorderColor: '#10B981',
+                    pointHoverRadius: 6,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false // Usamos nuestra propia leyenda
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#374151',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.datasetIndex === 1) {
+                                label += '$' + formatNumber(context.parsed.y);
+                            } else {
+                                label += context.parsed.y;
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#9CA3AF'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                    ticks: {
+                        color: '#9CA3AF',
+                        callback: function(value) {
+                            return '$' + formatNumber(value);
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#9CA3AF'
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            }
+        }
+    });
+}
+
+async function loadTopClients() {
+    const limit = document.getElementById('top-clients-limit').value;
+    const loadingElement = document.getElementById('top-clients-loading');
+    
+    try {
+        loadingElement.style.display = 'flex';
+        
+        const response = await fetch(`/api/mbl/analytics/top-clients?limit=${limit}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            createTopClientsChart(data.data);
+            analyticsData.topClients = data;
+        }
+    } catch (error) {
+        console.error('Error loading top clients:', error);
+    } finally {
+        loadingElement.style.display = 'none';
+    }
+}
+
+function createTopClientsChart(data) {
+    const ctx = document.getElementById('top-clients-chart').getContext('2d');
+    
+    // Destruir gráfico existente
+    if (charts.topClients) {
+        charts.topClients.destroy();
+    }
+    
+    charts.topClients = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Monto Total Canjeado',
+                data: data.datasets[0].data,
+                backgroundColor: data.datasets[0].backgroundColor,
+                borderRadius: 4,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y', // Barras horizontales
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#374151',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Total: $' + formatNumber(context.parsed.x);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#9CA3AF',
+                        callback: function(value) {
+                            return '$' + formatNumber(value);
+                        }
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#9CA3AF',
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function loadTrends() {
+    try {
+        const response = await fetch('/api/mbl/analytics/trends');
+        const data = await response.json();
+        
+        if (data.success) {
+            updateTrendsSection(data.trends);
+            createHourlyPatternChart(data.trends.hourly_pattern);
+            analyticsData.trends = data.trends;
+        }
+    } catch (error) {
+        console.error('Error loading trends:', error);
+    }
+}
+
+function updateTrendsSection(trends) {
+    // Comparativa semanal
+    const weeklyComparison = trends.weekly_comparison;
+    
+    document.getElementById('current-week-canjes').textContent = `${weeklyComparison.current_week.canjes} canjes`;
+    document.getElementById('current-week-monto').textContent = `$${formatNumber(weeklyComparison.current_week.monto)}`;
+    
+    document.getElementById('previous-week-canjes').textContent = `${weeklyComparison.previous_week.canjes} canjes`;
+    document.getElementById('previous-week-monto').textContent = `$${formatNumber(weeklyComparison.previous_week.monto)}`;
+    
+    // Cambios porcentuales
+    updateChangeIndicator('canjes-change', weeklyComparison.changes.canjes_percent, 'Canjes');
+    updateChangeIndicator('monto-change', weeklyComparison.changes.monto_percent, 'Monto');
+    
+    // Ranking días de la semana
+    updateWeekdayRanking(trends.weekday_ranking);
+}
+
+function updateChangeIndicator(elementId, percent, label) {
+    const element = document.getElementById(elementId);
+    const isPositive = percent >= 0;
+    const icon = isPositive ? 'fa-arrow-up' : 'fa-arrow-down';
+    const className = isPositive ? 'positive' : 'negative';
+    
+    element.innerHTML = `<i class="fas ${icon}"></i> ${Math.abs(percent)}% ${label}`;
+    element.className = `change-item ${className}`;
+}
+
+function updateWeekdayRanking(weekdayData) {
+    const container = document.getElementById('weekday-ranking');
+    
+    container.innerHTML = weekdayData.map((day, index) => `
+        <div class="weekday-item">
+            <div class="weekday-rank">${index + 1}</div>
+            <div class="weekday-name">${day.dia_semana}</div>
+            <div class="weekday-stats">
+                <span class="weekday-canjes">${day.total_canjes} canjes</span>
+                <span class="weekday-avg">$${formatNumber(day.promedio_monto)} promedio</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function createHourlyPatternChart(hourlyData) {
+    const ctx = document.getElementById('hourly-pattern-chart').getContext('2d');
+    
+    // Destruir gráfico existente
+    if (charts.hourlyPattern) {
+        charts.hourlyPattern.destroy();
+    }
+    
+    charts.hourlyPattern = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: hourlyData.labels,
+            datasets: [{
+                label: 'Canjes por Hora',
+                data: hourlyData.canjes,
+                borderColor: '#F59E0B',
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#F59E0B',
+                pointBorderColor: '#F59E0B',
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#374151',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                y: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#9CA3AF',
+                        font: {
+                            size: 10
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: '#9CA3AF',
+                        font: {
+                            size: 10
+                        },
+                        maxRotation: 45
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function refreshAnalytics() {
+    console.log('Refreshing analytics...');
+    showNotification('Actualizando datos...', 'info');
+    
+    try {
+        await loadDashboardData();
+        showNotification('Datos actualizados correctamente', 'success');
+    } catch (error) {
+        console.error('Error refreshing analytics:', error);
+        showNotification('Error actualizando datos', 'error');
+    }
+}
+
+// ============ FUNCIONES CLIENTES ============
+async function loadClientes() {
+    try {
+        const response = await fetch('/api/mbl/clientes');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayClientes(data.clientes);
+        }
+    } catch (error) {
+        console.error('Error loading clientes:', error);
+        showNotification('Error cargando clientes', 'error');
+    }
+}
+
+function displayClientes(clientes) {
+    const tbody = document.getElementById('clients-tbody');
+    
+    if (clientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No hay clientes registrados</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = clientes.map(cliente => `
+        <tr>
+            <td>${cliente.nombre}</td>
+            <td>${cliente.cedula}</td>
+            <td>${cliente.telefono || '-'}</td>
+            <td>${cliente.email || '-'}</td>
+            <td>${formatDate(cliente.fecha_registro)}</td>
+            <td class="actions">
+                <button class="btn-icon edit-btn" onclick="editClient(${cliente.id})" title="Editar">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn-icon delete-btn" onclick="deleteClient(${cliente.id})" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function searchClients() {
+    const searchTerm = document.getElementById('client-search').value.toLowerCase();
+    const rows = document.querySelectorAll('#clients-tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function openClientModal(clientData = null) {
+    const modal = document.getElementById('client-modal');
+    const title = document.getElementById('client-modal-title');
+    const form = document.getElementById('client-form');
+    
+    if (clientData) {
+        title.textContent = 'Editar Cliente';
+        document.getElementById('client-id').value = clientData.id;
+        document.getElementById('client-nombre').value = clientData.nombre;
+        document.getElementById('client-cedula').value = clientData.cedula;
+        document.getElementById('client-telefono').value = clientData.telefono || '';
+        document.getElementById('client-email').value = clientData.email || '';
+        document.getElementById('client-cedula').disabled = true;
+    } else {
+        title.textContent = 'Nuevo Cliente';
+        form.reset();
+        document.getElementById('client-cedula').disabled = false;
+    }
+    
+    modal.style.display = 'flex';
+    document.getElementById('client-nombre').focus();
+}
+
+function closeClientModal() {
+    document.getElementById('client-modal').style.display = 'none';
+}
+
+async function saveClient(e) {
+    e.preventDefault();
+    
+    const clientId = document.getElementById('client-id').value;
+    const clientData = {
+        nombre: document.getElementById('client-nombre').value,
+        cedula: document.getElementById('client-cedula').value,
+        telefono: document.getElementById('client-telefono').value,
+        email: document.getElementById('client-email').value
+    };
+    
+    try {
+        const url = clientId ? `/api/mbl/clientes/${clientId}` : '/api/mbl/clientes';
+        const method = clientId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(clientData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            closeClientModal();
+            loadClientes();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error saving client:', error);
+        showNotification('Error guardando cliente', 'error');
+    }
+}
+
+async function editClient(clientId) {
+    try {
+        const response = await fetch('/api/mbl/clientes');
+        const data = await response.json();
+        
+        if (data.success) {
+            const client = data.clientes.find(c => c.id === clientId);
+            if (client) {
+                openClientModal(client);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading client data:', error);
+    }
+}
+
+async function deleteClient(clientId) {
+    if (!confirm('¿Está seguro de eliminar este cliente?')) return;
+    
+    try {
+        const response = await fetch(`/api/mbl/clientes/${clientId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            loadClientes();
+        } else {
+            showNotification(data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting client:', error);
+        showNotification('Error eliminando cliente', 'error');
+    }
+}
+
+// ============ FUNCIONES CANJES ============
+async function loadCanjes() {
+    try {
+        const response = await fetch('/api/mbl/canjes');
+        const data = await response.json();
+        
+        if (data.success) {
+            displayCanjes(data.canjes);
+        }
+    } catch (error) {
+        console.error('Error loading canjes:', error);
+        showNotification('Error cargando canjes', 'error');
+    }
+}
+
+function displayCanjes(canjes) {
+    const tbody = document.getElementById('canjes-tbody');
+    
+    if (canjes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No hay canjes registrados</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = canjes.map(canje => `
+        <tr>
+            <td>${formatDate(canje.fecha_canje)}</td>
+            <td>${canje.cliente_nombre} (${canje.cliente_cedula})</td>
+            <td class="amount">$${formatNumber(canje.monto)}</td>
+            <td>${canje.descripcion || '-'}</td>
+            <td>${canje.usuario_registro}</td>
+            <td class="actions">
+                <button class="btn-icon delete-btn" onclick="deleteCanje(${canje.id})" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function loadClientesForSelect() {
+    try {
+        const response = await fetch('/api/mbl/clientes');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('canje-cliente');
+            select.innerHTML = '<option value="">Seleccionar cliente...</option>';
+            
+            data.clientes.forEach(cliente => {
+                select.innerHTML += `<option value="${cliente.id}">${cliente.nombre} - ${cliente.cedula}</option>`;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading clients for select:', error);
+    }
+}
+
+function openCanjeModal() {
+    const modal = document.getElementById('canje-modal');
+    document.getElementById('canje-form').reset();
+    modal.style.display = 'flex';
+    document.getElementById('canje-cliente').focus();
+}
+
+function closeCanjeModal() {
+    document.getElementById('canje-modal').style.display = 'none';
+}
+
+async function saveCanje(e) {
+    e.preventDefault();
+    
+    const canjeData = {
+        cliente_id: document.getElementById('canje-cliente').value,
+        monto: document.getElementById('canje-monto').value,
+        descripcion: document.getElementById('canje-descripcion').value
+    };
+    
+    try {
+        const response = await fetch('/api/mbl/canjes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(canjeData)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            closeCanjeModal();
+            loadCanjes();
+            // Actualizar analytics si estamos en dashboard
+            if (document.getElementById('dashboard').classList.contains('active')) {
+                refreshAnalytics();
+            }
+        } else {
+            showNotification(data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error saving canje:', error);
+        showNotification('Error registrando canje', 'error');
+    }
+}
+
+async function deleteCanje(canjeId) {
+    if (!confirm('¿Está seguro de eliminar este canje?')) return;
+    
+    try {
+        const response = await fetch(`/api/mbl/canjes/${canjeId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(data.message, 'success');
+            loadCanjes();
+            // Actualizar analytics
+            if (document.getElementById('dashboard').classList.contains('active')) {
+                refreshAnalytics();
+            }
+        } else {
+            showNotification(data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting canje:', error);
+        showNotification('Error eliminando canje', 'error');
+    }
+}
+
+// ============ FUNCIONES ADMIN ============
+async function loadAdminStats() {
+    try {
+        const response = await fetch('/api/mbl/admin/stats');
+        const data = await response.json();
+        
+        if (data.success) {
+            const stats = data.stats;
+            document.getElementById('admin-total-clientes').textContent = stats.total_clientes;
+            document.getElementById('admin-total-canjes').textContent = stats.total_canjes;
+            document.getElementById('admin-total-monto').textContent = `${formatNumber(stats.total_monto)}`;
+            document.getElementById('admin-canjes-hoy').textContent = stats.canjes_hoy;
+        }
+    } catch (error) {
+        console.error('Error loading admin stats:', error);
+        showNotification('Error cargando estadísticas', 'error');
+    }
+}
+
+// ============ FUNCIONES DE UTILIDAD ============
+function formatNumber(num) {
+    if (num === null || num === undefined) return '0';
+    return parseFloat(num).toLocaleString('es-CO', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    });
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function showLoading(message = 'Cargando...') {
+    const overlay = document.getElementById('loading-overlay');
+    const text = overlay.querySelector('p');
+    text.textContent = message;
+    overlay.style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+}
+
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    
+    const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle'
+    };
+    
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <i class="${icons[type]}"></i>
+        <span>${message}</span>
+        <button class="notification-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove después de 5 segundos
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
+    
+    // Animación de entrada
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+}
+
+function loadInitialData() {
+    // Cargar datos según el tab activo
+    const activeTab = document.querySelector('.tab-content.active');
+    if (activeTab) {
+        switch(activeTab.id) {
+            case 'dashboard':
+                // Ya se carga en initializeAnalytics
+                break;
+            case 'clientes':
+                loadClientes();
+                break;
+            case 'canjes':
+                loadCanjes();
+                loadClientesForSelect();
+                break;
+            case 'admin':
+                if (currentUser && currentUser.role === 'admin') {
+                    loadAdminStats();
+                }
+                break;
+        }
+    }
+}
+
+async function logout() {
+    try {
+        const response = await fetch('/api/mbl/logout', {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Limpiar storage
+            localStorage.removeItem('mbl_token');
+            localStorage.removeItem('mbl_username');
+            localStorage.removeItem('mbl_role');
+            
+            // Destruir gráficos
+            Object.values(charts).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+            
+            // Redireccionar
+            window.location.href = '/login';
+        }
+    } catch (error) {
+        console.error('Error during logout:', error);
+        // Forzar logout local
+        localStorage.clear();
+        window.location.href = '/login';
+    }
+}
+
+// ============ EVENTOS GLOBALES ============
+window.addEventListener('resize', function() {
+    // Redimensionar gráficos
+    Object.values(charts).forEach(chart => {
+        if (chart && typeof chart.resize === 'function') {
+            chart.resize();
+        }
+    });
+});
+
+// Actualizar analytics cada 5 minutos si está en dashboard
+setInterval(() => {
+    const dashboardTab = document.getElementById('dashboard');
+    if (dashboardTab && dashboardTab.classList.contains('active')) {
+        console.log('Auto-refreshing analytics...');
+        loadKPIs(); // Solo KPIs para no sobrecargar
+    }
+}, 5 * 60 * 1000);
+
+// ============ FUNCIONES EXPUESTAS GLOBALMENTE ============
+// Para uso desde HTML onclick eventos
+window.editClient = editClient;
+window.deleteClient = deleteClient;
+window.deleteCanje = deleteCanje;
+window.refreshAnalytics = refreshAnalytics;
+
+// ============ MANEJO DE ERRORES GLOBALES ============
+window.addEventListener('error', function(e) {
+    console.error('Global error:', e.error);
+    showNotification('Ha ocurrido un error inesperado', 'error');
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+    showNotification('Error de conexión', 'error');
+});
+
+// ============ CONFIGURACIÓN CHART.JS RESPONSIVE ============
+Chart.register({
+    id: 'customResponsive',
+    beforeDraw: function(chart) {
+        // Configuraciones adicionales para responsive
+        if (window.innerWidth < 768) {
+            // Mobile adjustments
+            chart.options.plugins.tooltip.enabled = true;
+            chart.options.scales.x.ticks.maxRotation = 45;
+            chart.options.scales.y.ticks.font.size = 10;
+        } else {
+            // Desktop adjustments
+            chart.options.scales.x.ticks.maxRotation = 0;
+            chart.options.scales.y.ticks.font.size = 12;
+        }
+    }
+});
+
+console.log('MBL Casa Apuestas - App.js loaded successfully with Analytics support');
